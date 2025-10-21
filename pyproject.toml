@@ -9,7 +9,9 @@ dependencies = [
     "daft>=0.6.7",
     "getdaft>=0.5.0",
     "ipykernel>=7.0.1",
+    "ipywidgets>=8.1.7",
     "pydantic>=2.12.3",
+    "tqdm>=4.67.1",
 ]
 
 

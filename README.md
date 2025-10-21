@@ -65,7 +65,7 @@ print(outputs["results"])
 ### Retrieval Pipeline Demo
 
 ```bash
-PYTHONPATH=src:. uv run python examples/retrieval/demo.py
+uv run python examples/retrieval/demo.py
 ```
 
 This demonstrates a two-stage retrieval pipeline:
@@ -75,7 +75,7 @@ This demonstrates a two-stage retrieval pipeline:
 ### Running Tests
 
 ```bash
-PYTHONPATH=src:. uv run pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 Expected output: `19 passed, 1 skipped`
@@ -188,7 +188,7 @@ runner = Runner(mode="auto", batch_threshold=10)
 uv add --dev pytest
 
 # Run tests
-PYTHONPATH=src:. uv run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run linter
 ruff check src/ tests/ examples/
