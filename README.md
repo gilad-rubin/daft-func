@@ -11,6 +11,7 @@ daft_func lets you build computational DAGs using simple Python functions with a
 🔄 **Map-Reduce Pattern** - Built-in support for per-item operations with automatic alignment  
 🛡️ **Type Safety** - Full Pydantic model support with automatic schema inference  
 ✨ **Zero Boilerplate** - Decorator + type hints = complete specification  
+📊 **DAG Visualization** - Interactive Graphviz-based pipeline visualization with type annotations  
 
 ## Quick Start
 
@@ -23,13 +24,16 @@ cd daft_func
 
 # Install dependencies
 uv sync
+
+# Optional: Install visualization dependencies
+uv add --optional viz networkx graphviz
 ```
 
 ### Basic Example
 
 ```python
 from pydantic import BaseModel
-from daft_func import daft_func, Runner
+from daft_func import func, Pipeline, Runner
 
 # 1. Define your data models
 class Query(BaseModel):
@@ -41,13 +45,14 @@ class Result(BaseModel):
     score: float
 
 # 2. Define your DAG nodes
-@daft_func(output="results", map_axis="query", key_attr="id")
+@func(output="results", map_axis="query", key_attr="id")
 def process(query: Query, threshold: float) -> Result:
     score = len(query.text) * threshold
     return Result(id=query.id, score=score)
 
-# 3. Run your pipeline
-runner = Runner(mode="auto")
+# 3. Create pipeline and run
+pipeline = Pipeline(functions=[process])
+runner = Runner(pipeline=pipeline, mode="auto")
 outputs = runner.run(inputs={
     "query": [
         Query(id="q1", text="hello"),
@@ -59,6 +64,40 @@ outputs = runner.run(inputs={
 print(outputs["results"])
 # [Result(id='q1', score=2.5), Result(id='q2', score=2.5)]
 ```
+
+## Visualization
+
+Visualize your pipeline DAG with type annotations and dependency relationships:
+
+```python
+from daft_func import func, Pipeline
+
+# Define your pipeline
+@func(output="doubled")
+def double(x: int) -> int:
+    return x * 2
+
+@func(output="result")
+def add_ten(doubled: int, offset: int = 5) -> int:
+    return doubled + offset
+
+# Create and visualize the pipeline
+pipeline = Pipeline(functions=[double, add_ten])
+viz = pipeline.visualize(
+    orient="LR",  # Left to right layout
+    show_legend=True
+)
+
+# In a Jupyter notebook, this will display the graph inline
+# Otherwise, save to file:
+# viz = pipeline.visualize(filename="pipeline.png")
+```
+
+The visualization shows:
+- Input parameters (green, dashed boxes) with type annotations
+- Function nodes (blue, rounded boxes) with output types
+- Dependency edges labeled with parameter names
+- Default values displayed on parameters
 
 ## Running the Examples
 
@@ -85,8 +124,8 @@ Expected output: `19 passed, 1 skipped`
 ```
 daft_func/
 ├── src/daft_func/          # Core framework
-│   ├── decorator.py      # @daft_func decorator
-│   ├── registry.py       # DAG registry & topological sort
+│   ├── decorator.py      # @func decorator
+│   ├── pipeline.py       # Pipeline & DAG management
 │   ├── runner.py         # Execution engine
 │   └── types.py          # Type conversion utilities
 │
@@ -107,7 +146,8 @@ daft_func supports three execution modes:
 
 ### Local Mode (Pure Python)
 ```python
-runner = Runner(mode="local")
+pipeline = Pipeline(functions=[...])
+runner = Runner(pipeline=pipeline, mode="local")
 ```
 - No Daft dependency required
 - Simple loop over items
@@ -115,7 +155,8 @@ runner = Runner(mode="local")
 
 ### Daft Mode (Vectorized)
 ```python
-runner = Runner(mode="daft")
+pipeline = Pipeline(functions=[...])
+runner = Runner(pipeline=pipeline, mode="daft")
 ```
 - Forces batch execution with Daft DataFrames
 - Vectorized operations
@@ -123,7 +164,8 @@ runner = Runner(mode="daft")
 
 ### Auto Mode (Intelligent)
 ```python
-runner = Runner(mode="auto", batch_threshold=10)
+pipeline = Pipeline(functions=[...])
+runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=10)
 ```
 - Automatically chooses based on input size
 - Uses Daft when >= `batch_threshold` items
@@ -160,18 +202,20 @@ runner = Runner(mode="auto", batch_threshold=10)
 
 3. **Create nodes** in `nodes.py`:
    ```python
-   from daft_func import daft_func
+   from daft_func import func
    
-   @daft_func(output="output", map_axis="input", key_attr="id")
+   @func(output="output", map_axis="input", key_attr="id")
    def transform(input: Input, config: Config) -> Output:
        return Output(result=process(input, config))
    ```
 
 4. **Run your pipeline**:
    ```python
-   from daft_func import Runner
+   from daft_func import Pipeline, Runner
+   from .nodes import transform
    
-   runner = Runner(mode="auto")
+   pipeline = Pipeline(functions=[transform])
+   runner = Runner(pipeline=pipeline, mode="auto")
    result = runner.run(inputs={"input": [...], "config": ...})
    ```
 
@@ -180,6 +224,7 @@ runner = Runner(mode="auto", batch_threshold=10)
 - Python 3.12+
 - Pydantic 2.12+
 - Daft 0.6.7+ (optional, for batch processing)
+- NetworkX 3.0+ and Graphviz 0.20+ (optional, for visualization)
 
 ## Development
 

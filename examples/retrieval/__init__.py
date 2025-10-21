@@ -1,7 +1,7 @@
 """Retrieval pipeline example for daft_func."""
 
-from examples.retrieval.implementations import IdentityReranker, ToyRetriever
-from examples.retrieval.models import (
+from .implementations import IdentityReranker, ToyRetriever
+from .models import (
     Query,
     RerankedHit,
     Reranker,
@@ -9,7 +9,7 @@ from examples.retrieval.models import (
     RetrievalResult,
     Retriever,
 )
-from examples.retrieval.nodes import rerank, retrieve
+from .nodes import rerank, retrieve
 
 __all__ = [
     "Query",

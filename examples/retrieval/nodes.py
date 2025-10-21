@@ -2,8 +2,9 @@
 
 from typing import List
 
-from daft_func import daft_func
-from examples.retrieval.models import (
+from daft_func import func
+
+from .models import (
     Query,
     RerankedHit,
     Reranker,
@@ -12,7 +13,7 @@ from examples.retrieval.models import (
 )
 
 
-@daft_func(output="hits", map_axis="query", key_attr="query_uuid")
+@func(output="hits", map_axis="query", key_attr="query_uuid")
 def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
     """Retrieve documents for a query.
 
@@ -27,7 +28,7 @@ def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
     return retriever.retrieve(query, top_k=top_k)
 
 
-@daft_func(output="reranked_hits", map_axis="query", key_attr="query_uuid")
+@func(output="reranked_hits", map_axis="query", key_attr="query_uuid")
 def rerank(
     reranker: Reranker, query: Query, hits: RetrievalResult, top_k: int
 ) -> List[RerankedHit]:

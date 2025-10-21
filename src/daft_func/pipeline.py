@@ -1,4 +1,4 @@
-"""DAG registry for managing nodes and dependencies."""
+"""DAG pipeline for managing nodes and dependencies."""
 
 import inspect
 from dataclasses import dataclass
@@ -25,15 +25,33 @@ class NodeDef:
     params: Tuple[str, ...]  # ordered parameter names (from signature)
 
 
-class DagRegistry:
-    """Registry for DAG nodes with automatic topological sorting."""
+class Pipeline:
+    """Pipeline for DAG nodes with automatic topological sorting."""
 
-    def __init__(self):
+    def __init__(self, functions: Optional[List[Callable]] = None):
+        """Initialize pipeline with optional list of decorated functions.
+
+        Args:
+            functions: List of functions decorated with @func. If provided,
+                      they will be automatically registered to the pipeline.
+
+        Raises:
+            ValueError: If a function is missing @func decorator metadata.
+        """
         self.nodes: List[NodeDef] = []
         self.by_output: Dict[str, NodeDef] = {}
 
+        if functions:
+            for fn in functions:
+                meta = getattr(fn, "_func_meta", None)
+                if meta is None:
+                    raise ValueError(
+                        f"Function {fn.__name__} is missing @func decorator metadata"
+                    )
+                self.add(fn, meta)
+
     def add(self, fn: Callable, meta: NodeMeta):
-        """Add a node to the registry."""
+        """Add a node to the pipeline."""
         sig = inspect.signature(fn)
         params = tuple(sig.parameters.keys())
         node = NodeDef(fn=fn, meta=meta, params=params)
@@ -75,3 +93,18 @@ class DagRegistry:
         """Clear all registered nodes."""
         self.nodes.clear()
         self.by_output.clear()
+
+    def visualize(self, **kwargs):
+        """Visualize the pipeline as a directed graph.
+
+        Args:
+            **kwargs: Additional arguments passed to visualize_graphviz
+                (orient, style, figsize, filename, show_legend, return_type)
+
+        Returns:
+            graphviz.Digraph or IPython.display.HTML object
+        """
+        from daft_func.visualization import build_graph, visualize_graphviz
+
+        graph = build_graph(self)
+        return visualize_graphviz(graph, **kwargs)

@@ -1,13 +1,13 @@
-"""Tests for DAG registry."""
+"""Tests for DAG pipeline."""
 
 import pytest
 
-from daft_func.registry import DagRegistry, NodeMeta
+from daft_func.pipeline import Pipeline, NodeMeta
 
 
-def test_registry_add_node():
-    """Test adding nodes to registry."""
-    registry = DagRegistry()
+def test_pipeline_add_node():
+    """Test adding nodes to pipeline."""
+    registry = Pipeline()
 
     def my_func(a: int, b: int) -> int:
         return a + b
@@ -20,9 +20,9 @@ def test_registry_add_node():
     assert registry.by_output["result"].fn == my_func
 
 
-def test_registry_topo_sort_simple():
+def test_pipeline_topo_sort_simple():
     """Test topological sort with simple dependencies."""
-    registry = DagRegistry()
+    registry = Pipeline()
 
     def add(a: int, b: int) -> int:
         return a + b
@@ -41,9 +41,9 @@ def test_registry_topo_sort_simple():
     assert order[1].meta.output_name == "final"
 
 
-def test_registry_topo_sort_parallel():
+def test_pipeline_topo_sort_parallel():
     """Test topological sort with parallel nodes."""
-    registry = DagRegistry()
+    registry = Pipeline()
 
     def func_a(x: int) -> int:
         return x + 1
@@ -67,9 +67,9 @@ def test_registry_topo_sort_parallel():
     assert set(output_names[:2]) == {"a_out", "b_out"}
 
 
-def test_registry_topo_sort_circular_deps():
+def test_pipeline_topo_sort_circular_deps():
     """Test that circular dependencies raise an error."""
-    registry = DagRegistry()
+    registry = Pipeline()
 
     # This is contrived, but simulates circular dependency
     def func_a(b_out: int) -> int:
@@ -85,9 +85,9 @@ def test_registry_topo_sort_circular_deps():
         registry.topo({"x": 5})
 
 
-def test_registry_clear():
-    """Test clearing registry."""
-    registry = DagRegistry()
+def test_pipeline_clear():
+    """Test clearing pipeline."""
+    registry = Pipeline()
 
     def my_func(a: int) -> int:
         return a + 1

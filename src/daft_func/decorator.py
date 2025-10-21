@@ -3,21 +3,13 @@
 from functools import wraps
 from typing import Callable, Optional
 
-from daft_func.registry import DagRegistry, NodeMeta
-
-# Global registry instance
-_GLOBAL_REGISTRY = DagRegistry()
+from daft_func.pipeline import NodeMeta
 
 
-def get_registry() -> DagRegistry:
-    """Get the global DAG registry."""
-    return _GLOBAL_REGISTRY
-
-
-def daft_func(
+def func(
     *, output: str, map_axis: Optional[str] = None, key_attr: Optional[str] = None
 ):
-    """Decorator to register a function as a DAG node.
+    """Decorator to attach metadata to a function for DAG pipeline use.
 
     Args:
         output: Name of the produced value (binds it into the DAG namespace)
@@ -25,7 +17,7 @@ def daft_func(
         key_attr: Attribute on the map_axis object that uniquely identifies items (alignment)
 
     Example:
-        @daft_func(output="result", map_axis="query", key_attr="query_uuid")
+        @func(output="result", map_axis="query", key_attr="query_uuid")
         def process(query: Query, config: Config) -> Result:
             return compute(query, config)
     """
@@ -36,8 +28,7 @@ def daft_func(
         def wrapper(*args, **kwargs):
             return fn(*args, **kwargs)
 
-        wrapper._daft_func_meta = meta
-        _GLOBAL_REGISTRY.add(wrapper, meta)
+        wrapper._func_meta = meta
         return wrapper
 
     return deco

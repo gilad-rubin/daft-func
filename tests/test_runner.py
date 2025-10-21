@@ -3,16 +3,7 @@
 import pytest
 from pydantic import BaseModel
 
-from daft_func import Runner, daft_func
-from daft_func.decorator import get_registry
-
-
-@pytest.fixture(autouse=True)
-def clean_registry():
-    """Clear registry before each test."""
-    get_registry().clear()
-    yield
-    get_registry().clear()
+from daft_func import Pipeline, Runner, func
 
 
 class Item(BaseModel):
@@ -32,11 +23,12 @@ class Result(BaseModel):
 def test_runner_single_item():
     """Test runner with single item."""
 
-    @daft_func(output="result")
+    @func(output="result")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
-    runner = Runner(mode="auto")
+    pipeline = Pipeline(functions=[process])
+    runner = Runner(pipeline=pipeline, mode="auto")
     inputs = {
         "item": Item(item_id="i1", value=5),
         "multiplier": 2,
@@ -53,11 +45,12 @@ def test_runner_single_item():
 def test_runner_multiple_items_local():
     """Test runner with multiple items in local mode."""
 
-    @daft_func(output="result", map_axis="item", key_attr="item_id")
+    @func(output="result", map_axis="item", key_attr="item_id")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
-    runner = Runner(mode="local")
+    pipeline = Pipeline(functions=[process])
+    runner = Runner(pipeline=pipeline, mode="local")
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -79,11 +72,12 @@ def test_runner_multiple_items_daft():
     """Test runner with multiple items in daft mode."""
     pytest.importorskip("daft")
 
-    @daft_func(output="result", map_axis="item", key_attr="item_id")
+    @func(output="result", map_axis="item", key_attr="item_id")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
-    runner = Runner(mode="daft")
+    pipeline = Pipeline(functions=[process])
+    runner = Runner(pipeline=pipeline, mode="daft")
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -104,12 +98,13 @@ def test_runner_multiple_items_daft():
 def test_runner_auto_mode_threshold():
     """Test auto mode respects batch threshold."""
 
-    @daft_func(output="result", map_axis="item", key_attr="item_id")
+    @func(output="result", map_axis="item", key_attr="item_id")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
+    pipeline = Pipeline(functions=[process])
     # With 2 items and threshold 3, should use local
-    runner = Runner(mode="auto", batch_threshold=3)
+    runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=3)
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -125,15 +120,16 @@ def test_runner_auto_mode_threshold():
 def test_runner_chained_nodes():
     """Test runner with multiple dependent nodes."""
 
-    @daft_func(output="doubled", map_axis="item", key_attr="item_id")
+    @func(output="doubled", map_axis="item", key_attr="item_id")
     def double(item: Item) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * 2)
 
-    @daft_func(output="final", map_axis="item", key_attr="item_id")
+    @func(output="final", map_axis="item", key_attr="item_id")
     def add_ten(item: Item, doubled: Result) -> Result:
         return Result(item_id=item.item_id, doubled=doubled.doubled + 10)
 
-    runner = Runner(mode="local")
+    pipeline = Pipeline(functions=[double, add_ten])
+    runner = Runner(pipeline=pipeline, mode="local")
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -148,15 +144,16 @@ def test_runner_chained_nodes():
 def test_runner_constants_filtered():
     """Test that only relevant constants are passed to each node."""
 
-    @daft_func(output="result1")
+    @func(output="result1")
     def node1(const1: int) -> int:
         return const1 * 2
 
-    @daft_func(output="result2")
+    @func(output="result2")
     def node2(const2: int) -> int:
         return const2 * 3
 
-    runner = Runner()
+    pipeline = Pipeline(functions=[node1, node2])
+    runner = Runner(pipeline=pipeline)
     inputs = {
         "const1": 5,
         "const2": 10,

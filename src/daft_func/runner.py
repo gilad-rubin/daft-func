@@ -13,7 +13,7 @@ from typing import (
 
 from pydantic import BaseModel
 
-from daft_func.decorator import get_registry
+from daft_func.pipeline import Pipeline
 from daft_func.types import DAFT_AVAILABLE, daft_datatype
 
 if DAFT_AVAILABLE:
@@ -29,13 +29,17 @@ class Runner:
     - auto: Automatically chooses based on batch size threshold
     """
 
-    def __init__(self, mode: str = "auto", batch_threshold: int = 2):
-        """Initialize runner with execution mode and batch threshold.
+    def __init__(
+        self, pipeline: Pipeline, mode: str = "auto", batch_threshold: int = 2
+    ):
+        """Initialize runner with pipeline, execution mode and batch threshold.
 
         Args:
+            pipeline: The Pipeline instance containing the DAG nodes
             mode: Execution mode ("local", "daft", or "auto")
             batch_threshold: Minimum number of items to trigger Daft batching in auto mode
         """
+        self.pipeline = pipeline
         self.mode = mode
         self.batch_threshold = batch_threshold
 
@@ -48,10 +52,10 @@ class Runner:
         Returns:
             Dictionary containing all outputs including final results
         """
-        registry = get_registry()
+        pipeline = self.pipeline
 
         # Determine if we are batching based on any node's map_axis param presence + list input
-        map_axes = {n.meta.map_axis for n in registry.nodes if n.meta.map_axis}
+        map_axes = {n.meta.map_axis for n in pipeline.nodes if n.meta.map_axis}
         if len(map_axes) > 1:
             raise ValueError(f"This runner supports one map axis; found: {map_axes}")
         map_axis = next(iter(map_axes)) if map_axes else None
@@ -84,9 +88,9 @@ class Runner:
 
     def _run_single(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute DAG for a single item using pure Python."""
-        registry = get_registry()
+        pipeline = self.pipeline
         outputs = dict(inputs)
-        order = registry.topo(inputs)
+        order = pipeline.topo(inputs)
 
         for node in order:
             kwargs = {p: outputs[p] for p in node.params if p in outputs}
@@ -111,8 +115,8 @@ class Runner:
             aggregated.append(per_out)
 
         # Merge structure: final outputs to lists
-        registry = get_registry()
-        order = registry.topo({**constants, map_axis: items[0]})
+        pipeline = self.pipeline
+        order = pipeline.topo({**constants, map_axis: items[0]})
         final_output_name = order[-1].meta.output_name if order else None
 
         merged: Dict[str, Any] = dict(constants)
@@ -137,8 +141,8 @@ class Runner:
         # Build initial Daft DF with one column for the map_axis (dictified Pydantic)
         df = daft.from_pylist([{map_axis: it.model_dump()} for it in items])
 
-        registry = get_registry()
-        order = registry.topo({**constants, map_axis: items[0]})
+        pipeline = self.pipeline
+        order = pipeline.topo({**constants, map_axis: items[0]})
 
         # We'll iteratively add columns to df for each node's output
         for node in order:

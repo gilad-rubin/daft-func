@@ -3,7 +3,7 @@
 import re
 from typing import Dict, List
 
-from examples.retrieval.models import (
+from .models import (
     Query,
     RerankedHit,
     RetrievalHit,

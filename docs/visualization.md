@@ -1,0 +1,166 @@
+# Visualization Feature
+
+## Overview
+
+The daft-func library now includes Graphviz-based visualization for DAG pipelines, inspired by the pipefunc library. This feature allows you to visualize your computational pipelines with type annotations, dependency relationships, and default values.
+
+## Installation
+
+Install the optional visualization dependencies:
+
+```bash
+uv add networkx graphviz
+```
+
+Or they're already included if you installed from the updated project.
+
+## Usage
+
+### Basic Visualization
+
+```python
+from daft_func import daft_func
+from daft_func.decorator import get_pipeline
+
+# Define your pipeline
+@daft_func(output="doubled")
+def double(x: int) -> int:
+    return x * 2
+
+@daft_func(output="result")
+def add_ten(doubled: int, offset: int = 5) -> int:
+    return doubled + offset
+
+# Get the pipeline and visualize
+pipeline = get_pipeline()
+viz = pipeline.visualize(
+    orient="LR",  # Left to right layout
+    show_legend=True
+)
+
+# In Jupyter notebooks, this displays inline
+# Otherwise, save to file:
+viz.render("my_pipeline", format="png", cleanup=True)
+```
+
+### Visualization Options
+
+The `visualize()` method accepts several parameters:
+
+- **orient**: Graph orientation - 'TB' (top-bottom), 'LR' (left-right), 'BT' (bottom-top), 'RL' (right-left)
+- **show_legend**: Whether to display the legend (default: False)
+- **figsize**: Tuple of (width, height) for the figure size
+- **filename**: Path to save the visualization (e.g., "output.png", "output.svg")
+- **style**: Custom GraphvizStyle object for advanced styling
+- **return_type**: 'graphviz' or 'html' (auto-detected in notebooks)
+
+### Advanced Styling
+
+```python
+from daft_func.visualization import GraphvizStyle
+
+# Create custom style
+custom_style = GraphvizStyle(
+    arg_node_color="#FFE6E6",
+    func_node_color="#E6F3FF",
+    font_size=14,
+    font_name="Arial"
+)
+
+viz = pipeline.visualize(
+    style=custom_style,
+    orient="TB",
+    show_legend=True
+)
+```
+
+## Visual Elements
+
+The visualization includes:
+
+1. **Input Parameters** (Green, Dashed Boxes)
+   - Shows parameter names with type annotations
+   - Displays default values if present
+   - Example: `x : int` or `offset : int = 5`
+
+2. **Function Nodes** (Blue, Rounded Boxes)
+   - Function name as header
+   - Output name with return type
+   - Example: `double` → `doubled : int`
+
+3. **Dependency Edges**
+   - Labeled with parameter names being passed
+   - Color-coded by source type (green for inputs, blue for function outputs)
+
+4. **Legend** (Optional)
+   - Shows node type meanings
+   - Useful for complex pipelines
+
+## Examples
+
+See `examples/visualize_demo.py` for a complete working example:
+
+```bash
+uv run python examples/visualize_demo.py
+```
+
+This creates a simple two-node pipeline and saves the visualization to PNG and SVG formats.
+
+## Implementation Details
+
+### Architecture
+
+The visualization feature consists of three main components:
+
+1. **build_graph()**: Converts a Pipeline into a NetworkX directed graph
+   - Extracts nodes and dependencies from the pipeline structure
+   - Creates both input parameter nodes and function nodes
+   - No execution required - purely structural visualization
+
+2. **GraphvizStyle**: Dataclass for styling configuration
+   - Node colors for different types
+   - Font settings
+   - Legend appearance
+   - Fully customizable
+
+3. **visualize_graphviz()**: Renders the graph using Graphviz
+   - Generates HTML-like labels with type annotations
+   - Supports multiple output formats (PNG, SVG, PDF, etc.)
+   - Auto-detects Jupyter notebooks for inline display
+
+### Type Annotation Support
+
+The visualization automatically extracts and displays:
+- Parameter type hints from function signatures
+- Return type annotations
+- Default parameter values
+
+Type hints are displayed in a readable format (e.g., `List[int]` instead of `typing.List[int]`).
+
+## Refactoring: Registry → Pipeline
+
+As part of this feature, we renamed the core concept from "registry" to "pipeline" throughout the codebase:
+
+- `DagRegistry` → `Pipeline`
+- `get_registry()` → `get_pipeline()`
+- All references updated in tests and examples
+
+This better reflects the library's purpose and aligns with the visualization terminology.
+
+## Tests
+
+The visualization feature includes comprehensive tests in `tests/test_visualization.py`:
+
+- Graph building from simple and chained pipelines
+- Node and edge structure validation
+- Graphviz object creation
+- Type annotation rendering
+- Orientation parameter support
+- Integration with @daft_func decorator
+
+Run tests with:
+
+```bash
+uv run pytest tests/test_visualization.py -v
+```
+

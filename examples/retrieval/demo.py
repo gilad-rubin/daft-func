@@ -1,16 +1,30 @@
 """Demo script showing retrieval pipeline with daft_func."""
 
-from daft_func import Runner
-from examples.retrieval import (
-    IdentityReranker,
-    Query,
-    ToyRetriever,
-    rerank,  # Import to register nodes
-    retrieve,
-)
+from daft_func import Pipeline, Runner
 
-# Silence unused import warnings
-_ = (retrieve, rerank)
+# Import from the examples.retrieval package
+# Note: Run this script from the project root with: uv run python examples/retrieval/demo.py
+try:
+    from examples.retrieval import (
+        IdentityReranker,
+        Query,
+        ToyRetriever,
+        rerank,
+        retrieve,
+    )
+except ImportError:
+    # If running from the examples/retrieval directory
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from examples.retrieval import (
+        IdentityReranker,
+        Query,
+        ToyRetriever,
+        rerank,
+        retrieve,
+    )
 
 
 def main():
@@ -25,8 +39,11 @@ def main():
     retriever = ToyRetriever(corpus)
     reranker = IdentityReranker()
 
+    # Create pipeline with explicit functions
+    pipeline = Pipeline(functions=[retrieve, rerank])
+
     # Create runner with auto mode (chooses based on batch size)
-    runner = Runner(mode="auto", batch_threshold=2)
+    runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=2)
 
     print("=" * 70)
     print("daft_func Retrieval Pipeline Demo")
@@ -74,7 +91,7 @@ def main():
     print("\n📝 Example 3: Testing Different Execution Modes\n")
 
     for mode in ["local", "daft", "auto"]:
-        runner = Runner(mode=mode, batch_threshold=2)
+        runner = Runner(pipeline=pipeline, mode=mode, batch_threshold=2)
         result = runner.run(inputs=multi_inputs)
         print(
             f"✅ {mode.upper():5s} mode: {len(result['reranked_hits'])} queries processed"
