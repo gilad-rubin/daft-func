@@ -283,8 +283,6 @@ def visualize_graphviz(
 
     # Add edges
     for source, target, data in graph.edges(data=True):
-        param_name = data.get("param_name", "")
-
         # Determine edge color
         source_type = graph.nodes[source].get("node_type", "input")
         if source_type == "input":
@@ -295,10 +293,7 @@ def visualize_graphviz(
         digraph.edge(
             str(id(source)),
             str(id(target)),
-            label=param_name,
             color=edge_color,
-            fontname=style.font_name,
-            fontsize=str(style.edge_font_size),
         )
 
     # Add legend if requested
