@@ -3,7 +3,7 @@
 import pytest
 from pydantic import BaseModel
 
-from dagflow.types import DAFT_AVAILABLE, daft_datatype, pyarrow_datatype
+from daft_func.types import DAFT_AVAILABLE, daft_datatype, pyarrow_datatype
 
 
 @pytest.mark.skipif(not DAFT_AVAILABLE, reason="Daft not available")

@@ -13,8 +13,8 @@ from typing import (
 
 from pydantic import BaseModel
 
-from dagflow.decorator import get_registry
-from dagflow.types import DAFT_AVAILABLE, daft_datatype
+from daft_func.decorator import get_registry
+from daft_func.types import DAFT_AVAILABLE, daft_datatype
 
 if DAFT_AVAILABLE:
     import daft

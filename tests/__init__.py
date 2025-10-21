@@ -1,1 +1,1 @@
-"""Tests for DAGFlow."""
+"""Tests for daft_func."""

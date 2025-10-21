@@ -3,7 +3,7 @@
 from functools import wraps
 from typing import Callable, Optional
 
-from dagflow.registry import DagRegistry, NodeMeta
+from daft_func.registry import DagRegistry, NodeMeta
 
 # Global registry instance
 _GLOBAL_REGISTRY = DagRegistry()
@@ -14,7 +14,7 @@ def get_registry() -> DagRegistry:
     return _GLOBAL_REGISTRY
 
 
-def dagflow(
+def daft_func(
     *, output: str, map_axis: Optional[str] = None, key_attr: Optional[str] = None
 ):
     """Decorator to register a function as a DAG node.
@@ -25,7 +25,7 @@ def dagflow(
         key_attr: Attribute on the map_axis object that uniquely identifies items (alignment)
 
     Example:
-        @dagflow(output="result", map_axis="query", key_attr="query_uuid")
+        @daft_func(output="result", map_axis="query", key_attr="query_uuid")
         def process(query: Query, config: Config) -> Result:
             return compute(query, config)
     """
@@ -36,7 +36,7 @@ def dagflow(
         def wrapper(*args, **kwargs):
             return fn(*args, **kwargs)
 
-        wrapper._dagflow_meta = meta
+        wrapper._daft_func_meta = meta
         _GLOBAL_REGISTRY.add(wrapper, meta)
         return wrapper
 

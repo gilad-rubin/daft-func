@@ -2,7 +2,7 @@
 
 from typing import List
 
-from dagflow import dagflow
+from daft_func import daft_func
 from examples.retrieval.models import (
     Query,
     RerankedHit,
@@ -12,7 +12,7 @@ from examples.retrieval.models import (
 )
 
 
-@dagflow(output="hits", map_axis="query", key_attr="query_uuid")
+@daft_func(output="hits", map_axis="query", key_attr="query_uuid")
 def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
     """Retrieve documents for a query.
 
@@ -27,7 +27,7 @@ def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
     return retriever.retrieve(query, top_k=top_k)
 
 
-@dagflow(output="reranked_hits", map_axis="query", key_attr="query_uuid")
+@daft_func(output="reranked_hits", map_axis="query", key_attr="query_uuid")
 def rerank(
     reranker: Reranker, query: Query, hits: RetrievalResult, top_k: int
 ) -> List[RerankedHit]:

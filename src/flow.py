@@ -1,4 +1,4 @@
-# dagflow_minimal_auto_daft.py
+# daft_func_minimal_auto_daft.py
 from __future__ import annotations
 
 import inspect
@@ -236,7 +236,7 @@ class DagRegistry:
 _REG = DagRegistry()
 
 
-def dagflow(
+def daft_func(
     *, output: str, map_axis: Optional[str] = None, key_attr: Optional[str] = None
 ):
     """
@@ -252,7 +252,7 @@ def dagflow(
         def wrapper(*args, **kwargs):
             return fn(*args, **kwargs)
 
-        wrapper._dagflow_meta = meta
+        wrapper._daft_func_meta = meta
         _REG.add(wrapper, meta)
         return wrapper
 
@@ -264,12 +264,12 @@ def dagflow(
 # --------------------------
 
 
-@dagflow(output="hits", map_axis="query", key_attr="query_uuid")
+@daft_func(output="hits", map_axis="query", key_attr="query_uuid")
 def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
     return retriever.retrieve(query, top_k=top_k)
 
 
-@dagflow(output="reranked_hits", map_axis="query", key_attr="query_uuid")
+@daft_func(output="reranked_hits", map_axis="query", key_attr="query_uuid")
 def rerank(
     reranker: Reranker, query: Query, hits: RetrievalResult, top_k: int
 ) -> List[RerankedHit]:

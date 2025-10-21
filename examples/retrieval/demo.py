@@ -1,6 +1,6 @@
-"""Demo script showing retrieval pipeline with DAGFlow."""
+"""Demo script showing retrieval pipeline with daft_func."""
 
-from dagflow import Runner
+from daft_func import Runner
 from examples.retrieval import (
     IdentityReranker,
     Query,
@@ -29,7 +29,7 @@ def main():
     runner = Runner(mode="auto", batch_threshold=2)
 
     print("=" * 70)
-    print("DAGFlow Retrieval Pipeline Demo")
+    print("daft_func Retrieval Pipeline Demo")
     print("=" * 70)
 
     # Example 1: Single query

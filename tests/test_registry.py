@@ -2,7 +2,7 @@
 
 import pytest
 
-from dagflow.registry import DagRegistry, NodeMeta
+from daft_func.registry import DagRegistry, NodeMeta
 
 
 def test_registry_add_node():

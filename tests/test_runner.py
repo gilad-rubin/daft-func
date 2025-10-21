@@ -3,8 +3,8 @@
 import pytest
 from pydantic import BaseModel
 
-from dagflow import Runner, dagflow
-from dagflow.decorator import get_registry
+from daft_func import Runner, daft_func
+from daft_func.decorator import get_registry
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +32,7 @@ class Result(BaseModel):
 def test_runner_single_item():
     """Test runner with single item."""
 
-    @dagflow(output="result")
+    @daft_func(output="result")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
@@ -53,7 +53,7 @@ def test_runner_single_item():
 def test_runner_multiple_items_local():
     """Test runner with multiple items in local mode."""
 
-    @dagflow(output="result", map_axis="item", key_attr="item_id")
+    @daft_func(output="result", map_axis="item", key_attr="item_id")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
@@ -79,7 +79,7 @@ def test_runner_multiple_items_daft():
     """Test runner with multiple items in daft mode."""
     pytest.importorskip("daft")
 
-    @dagflow(output="result", map_axis="item", key_attr="item_id")
+    @daft_func(output="result", map_axis="item", key_attr="item_id")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
@@ -104,7 +104,7 @@ def test_runner_multiple_items_daft():
 def test_runner_auto_mode_threshold():
     """Test auto mode respects batch threshold."""
 
-    @dagflow(output="result", map_axis="item", key_attr="item_id")
+    @daft_func(output="result", map_axis="item", key_attr="item_id")
     def process(item: Item, multiplier: int) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
@@ -125,11 +125,11 @@ def test_runner_auto_mode_threshold():
 def test_runner_chained_nodes():
     """Test runner with multiple dependent nodes."""
 
-    @dagflow(output="doubled", map_axis="item", key_attr="item_id")
+    @daft_func(output="doubled", map_axis="item", key_attr="item_id")
     def double(item: Item) -> Result:
         return Result(item_id=item.item_id, doubled=item.value * 2)
 
-    @dagflow(output="final", map_axis="item", key_attr="item_id")
+    @daft_func(output="final", map_axis="item", key_attr="item_id")
     def add_ten(item: Item, doubled: Result) -> Result:
         return Result(item_id=item.item_id, doubled=doubled.doubled + 10)
 
@@ -148,11 +148,11 @@ def test_runner_chained_nodes():
 def test_runner_constants_filtered():
     """Test that only relevant constants are passed to each node."""
 
-    @dagflow(output="result1")
+    @daft_func(output="result1")
     def node1(const1: int) -> int:
         return const1 * 2
 
-    @dagflow(output="result2")
+    @daft_func(output="result2")
     def node2(const2: int) -> int:
         return const2 * 3
 

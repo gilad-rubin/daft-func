@@ -1,4 +1,4 @@
-"""Retrieval pipeline example for DAGFlow."""
+"""Retrieval pipeline example for daft_func."""
 
 from examples.retrieval.implementations import IdentityReranker, ToyRetriever
 from examples.retrieval.models import (

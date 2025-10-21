@@ -1,14 +1,14 @@
-# DAGFlow: Generic DAG Execution Framework with Automatic Batching
+# daft_func: Generic DAG Execution Framework with Automatic Batching
 
 ## Vision
 
-DAGFlow is a lightweight, generic framework for building and executing computational DAGs (Directed Acyclic Graphs) with automatic batch processing capabilities. It seamlessly transitions between single-item Python execution and high-performance vectorized execution using Daft DataFrames based on workload characteristics.
+daft_func is a lightweight, generic framework for building and executing computational DAGs (Directed Acyclic Graphs) with automatic batch processing capabilities. It seamlessly transitions between single-item Python execution and high-performance vectorized execution using Daft DataFrames based on workload characteristics.
 
 ## Core Concept
 
 The framework allows you to:
 
-1. **Define computational nodes** using simple Python functions with the `@dagflow` decorator
+1. **Define computational nodes** using simple Python functions with the `@daft_func` decorator
 2. **Declare dependencies implicitly** through function parameters
 3. **Execute automatically** with optimal batching strategy based on input size
 4. **Preserve type safety** with full Pydantic model support throughout the pipeline
@@ -43,14 +43,14 @@ The framework allows you to:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         User Code                            │
-│  @dagflow(output="result", map_axis="item")                 │
+│  @daft_func(output="result", map_axis="item")                 │
 │  def process(item: MyModel, config: Config) -> Result:      │
 │      return compute(item, config)                           │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      DAG Registry                            │
-│  • Collects all @dagflow decorated functions                │
+│  • Collects all @daft_func decorated functions                │
 │  • Inspects signatures and metadata                         │
 │  • Performs topological sort                                │
 └─────────────────────────────────────────────────────────────┘
@@ -78,11 +78,11 @@ The framework allows you to:
 
 ### Information Retrieval Pipelines
 ```python
-@dagflow(output="hits", map_axis="query", key_attr="query_uuid")
+@daft_func(output="hits", map_axis="query", key_attr="query_uuid")
 def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
     return retriever.retrieve(query, top_k=top_k)
 
-@dagflow(output="reranked", map_axis="query", key_attr="query_uuid")
+@daft_func(output="reranked", map_axis="query", key_attr="query_uuid")
 def rerank(reranker: Reranker, query: Query, hits: RetrievalResult, top_k: int) -> List[RerankedHit]:
     return reranker.rerank(query, hits, top_k=top_k)
 ```
@@ -151,7 +151,7 @@ def rerank(reranker: Reranker, query: Query, hits: RetrievalResult, top_k: int) 
 
 ## Philosophy
 
-DAGFlow embodies the principle that **complex systems should be built from simple, composable primitives**. By reducing DAG construction to function decoration and leveraging Python's type system, we create a framework that is:
+daft_func embodies the principle that **complex systems should be built from simple, composable primitives**. By reducing DAG construction to function decoration and leveraging Python's type system, we create a framework that is:
 
 - **Easy to understand**: Functions and decorators, nothing more
 - **Easy to test**: Pure functions with clear inputs/outputs

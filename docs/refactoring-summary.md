@@ -1,4 +1,4 @@
-# DAGFlow Refactoring Summary
+# daft_func Refactoring Summary
 
 ## Overview
 
@@ -7,16 +7,16 @@ Successfully refactored the monolithic `flow.py` into a clean, modular architect
 ## New Structure
 
 ```
-dagflow/
+daft_func/
 ├── docs/
 │   ├── overview.md              # High-level vision and architecture
 │   ├── fixes-applied.md         # Detailed fixes for Daft integration
 │   └── refactoring-summary.md   # This document
 │
 ├── src/
-│   └── dagflow/
+│   └── daft_func/
 │       ├── __init__.py          # Public API exports
-│       ├── decorator.py         # @dagflow decorator
+│       ├── decorator.py         # @daft_func decorator
 │       ├── registry.py          # DagRegistry, NodeDef, NodeMeta
 │       ├── runner.py            # Runner with adaptive batching
 │       └── types.py             # Pydantic→Daft type conversion
@@ -37,10 +37,10 @@ dagflow/
 
 ## Module Descriptions
 
-### Core Framework (`src/dagflow/`)
+### Core Framework (`src/daft_func/`)
 
 #### `decorator.py`
-- Exports `@dagflow` decorator for defining DAG nodes
+- Exports `@daft_func` decorator for defining DAG nodes
 - Maintains global registry
 - Simple, clean API
 
@@ -74,7 +74,7 @@ dagflow/
 - Simple, testable implementations
 
 #### `nodes.py`
-- `@dagflow` decorated functions
+- `@daft_func` decorated functions
 - `retrieve()`: Retrieval node
 - `rerank()`: Reranking node
 - Clean separation of concerns
@@ -167,16 +167,16 @@ class Query(BaseModel):
 
 ### 2. Define Nodes
 ```python
-from dagflow import dagflow
+from daft_func import daft_func
 
-@dagflow(output="results", map_axis="query", key_attr="id")
+@daft_func(output="results", map_axis="query", key_attr="id")
 def process(query: Query, config: Config) -> Result:
     return do_processing(query, config)
 ```
 
 ### 3. Run Pipeline
 ```python
-from dagflow import Runner
+from daft_func import Runner
 
 runner = Runner(mode="auto")
 result = runner.run(inputs={
@@ -199,7 +199,7 @@ The old `flow.py` is still present for reference. To migrate:
 
 1. Import from new modules:
    ```python
-   from dagflow import dagflow, Runner
+   from daft_func import daft_func, Runner
    ```
 
 2. Models and implementations move to `examples/`:

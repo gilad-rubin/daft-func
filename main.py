@@ -1,5 +1,5 @@
 def main():
-    print("Hello from dagflow!")
+    print("Hello from daft_func!")
 
 
 if __name__ == "__main__":

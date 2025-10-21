@@ -1,8 +1,8 @@
-# DAGFlow
+# daft-func
 
 **Generic DAG Execution Framework with Automatic Batching**
 
-DAGFlow lets you build computational DAGs using simple Python functions with automatic batch processing that seamlessly transitions between single-item Python execution and high-performance vectorized execution using Daft DataFrames.
+daft_func lets you build computational DAGs using simple Python functions with automatic batch processing that seamlessly transitions between single-item Python execution and high-performance vectorized execution using Daft DataFrames.
 
 ## Features
 
@@ -19,7 +19,7 @@ DAGFlow lets you build computational DAGs using simple Python functions with aut
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd dagflow
+cd daft_func
 
 # Install dependencies
 uv sync
@@ -29,7 +29,7 @@ uv sync
 
 ```python
 from pydantic import BaseModel
-from dagflow import dagflow, Runner
+from daft_func import daft_func, Runner
 
 # 1. Define your data models
 class Query(BaseModel):
@@ -41,7 +41,7 @@ class Result(BaseModel):
     score: float
 
 # 2. Define your DAG nodes
-@dagflow(output="results", map_axis="query", key_attr="id")
+@daft_func(output="results", map_axis="query", key_attr="id")
 def process(query: Query, threshold: float) -> Result:
     score = len(query.text) * threshold
     return Result(id=query.id, score=score)
@@ -83,9 +83,9 @@ Expected output: `19 passed, 1 skipped`
 ## Project Structure
 
 ```
-dagflow/
-├── src/dagflow/          # Core framework
-│   ├── decorator.py      # @dagflow decorator
+daft_func/
+├── src/daft_func/          # Core framework
+│   ├── decorator.py      # @daft_func decorator
 │   ├── registry.py       # DAG registry & topological sort
 │   ├── runner.py         # Execution engine
 │   └── types.py          # Type conversion utilities
@@ -103,7 +103,7 @@ dagflow/
 
 ## Execution Modes
 
-DAGFlow supports three execution modes:
+daft_func supports three execution modes:
 
 ### Local Mode (Pure Python)
 ```python
@@ -160,16 +160,16 @@ runner = Runner(mode="auto", batch_threshold=10)
 
 3. **Create nodes** in `nodes.py`:
    ```python
-   from dagflow import dagflow
+   from daft_func import daft_func
    
-   @dagflow(output="output", map_axis="input", key_attr="id")
+   @daft_func(output="output", map_axis="input", key_attr="id")
    def transform(input: Input, config: Config) -> Output:
        return Output(result=process(input, config))
    ```
 
 4. **Run your pipeline**:
    ```python
-   from dagflow import Runner
+   from daft_func import Runner
    
    runner = Runner(mode="auto")
    result = runner.run(inputs={"input": [...], "config": ...})
@@ -196,7 +196,7 @@ ruff check src/ tests/ examples/
 
 ## Philosophy
 
-DAGFlow embodies the principle that **complex systems should be built from simple, composable primitives**. By reducing DAG construction to function decoration and leveraging Python's type system, we create a framework that is:
+daft_func embodies the principle that **complex systems should be built from simple, composable primitives**. By reducing DAG construction to function decoration and leveraging Python's type system, we create a framework that is:
 
 - **Easy to understand**: Functions and decorators, nothing more
 - **Easy to test**: Pure functions with clear inputs/outputs
