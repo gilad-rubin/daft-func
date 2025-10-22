@@ -27,6 +27,7 @@ class NodeDef:
     fn: Callable
     meta: NodeMeta
     params: Tuple[str, ...]  # ordered parameter names (from signature)
+    params_with_defaults: Tuple[str, ...]  # parameters that have default values
 
 
 class Pipeline:
@@ -58,7 +59,15 @@ class Pipeline:
         """Add a node to the pipeline."""
         sig = inspect.signature(fn)
         params = tuple(sig.parameters.keys())
-        node = NodeDef(fn=fn, meta=meta, params=params)
+        # Track which parameters have default values
+        params_with_defaults = tuple(
+            name
+            for name, param in sig.parameters.items()
+            if param.default is not inspect.Parameter.empty
+        )
+        node = NodeDef(
+            fn=fn, meta=meta, params=params, params_with_defaults=params_with_defaults
+        )
         self.nodes.append(node)
         self.by_output[meta.output_name] = node
 
@@ -72,7 +81,7 @@ class Pipeline:
             List of nodes in execution order
 
         Raises:
-            RuntimeError: If dependencies cannot be resolved (circular deps)
+            RuntimeError: If dependencies cannot be resolved (circular deps or missing inputs)
         """
         available = set(initial_inputs.keys())
         ordered: List[NodeDef] = []
@@ -81,15 +90,35 @@ class Pipeline:
         while remaining:
             progress = False
             for node in list(remaining):
-                needed = {p for p in node.params if p not in ("self",)}
-                if needed.issubset(available):
+                # Required parameters are those without defaults
+                required = {
+                    p
+                    for p in node.params
+                    if p not in ("self",) and p not in node.params_with_defaults
+                }
+                if required.issubset(available):
                     ordered.append(node)
                     available.add(node.meta.output_name)
                     remaining.remove(node)
                     progress = True
             if not progress:
+                # Build detailed error message showing what's missing for each node
+                error_details = []
+                for node in remaining:
+                    required = {
+                        p
+                        for p in node.params
+                        if p not in ("self",) and p not in node.params_with_defaults
+                    }
+                    missing = required - available
+                    error_details.append(
+                        f"  - Function '{node.fn.__name__}' (output='{node.meta.output_name}') "
+                        f"is missing required inputs: {sorted(missing)}"
+                    )
+
                 raise RuntimeError(
-                    f"Cannot resolve dependencies; remaining: {[n.fn.__name__ for n in remaining]}"
+                    "Cannot resolve pipeline dependencies. The following functions have missing inputs:\n"
+                    + "\n".join(error_details)
                 )
         return ordered
 

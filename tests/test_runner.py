@@ -164,3 +164,99 @@ def test_runner_constants_filtered():
     # Single items are not wrapped
     assert result["result1"] == 10
     assert result["result2"] == 30
+
+
+def test_runner_default_parameters():
+    """Test that functions with default parameters work correctly."""
+
+    @func(output="step1")
+    def first_step(value: int, multiplier: int = 2) -> int:
+        return value * multiplier
+
+    @func(output="step2")
+    def second_step(step1: int, add_value: int = 10) -> int:
+        return step1 + add_value
+
+    pipeline = Pipeline(functions=[first_step, second_step])
+    runner = Runner(pipeline=pipeline)
+
+    # Test 1: Don't provide any optional parameters (use defaults)
+    inputs = {"value": 5}
+    result = runner.run(inputs=inputs)
+    assert result["step1"] == 10  # 5 * 2 (default multiplier)
+    assert result["step2"] == 20  # 10 + 10 (default add_value)
+
+    # Test 2: Override one default parameter
+    inputs = {"value": 5, "multiplier": 3}
+    result = runner.run(inputs=inputs)
+    assert result["step1"] == 15  # 5 * 3
+    assert result["step2"] == 25  # 15 + 10 (default add_value)
+
+    # Test 3: Override all default parameters
+    inputs = {"value": 5, "multiplier": 3, "add_value": 20}
+    result = runner.run(inputs=inputs)
+    assert result["step1"] == 15  # 5 * 3
+    assert result["step2"] == 35  # 15 + 20
+
+
+def test_runner_non_mapped_with_mapped_daft():
+    """Test batch mode with non-mapped functions followed by mapped functions with List returns.
+
+    Regression test for bug where non-mapped functions were incorrectly processed as batch operations,
+    causing batch UDFs with no series arguments to return lists instead of Expressions.
+    """
+    pytest.importorskip("daft")
+
+    from typing import Dict, List
+
+    class Query(BaseModel):
+        """Query model."""
+
+        id: str
+        text: str
+
+    class Hit(BaseModel):
+        """Hit model."""
+
+        doc_id: str
+        score: float
+
+    # Non-mapped function that runs once
+    @func(output="index")
+    def index(corpus: Dict[str, str]) -> bool:
+        """Index corpus - runs once, not per query."""
+        return True
+
+    # Mapped function that returns a list of BaseModels
+    @func(output="hits", map_axis="query", key_attr="id")
+    def retrieve(query: Query, top_k: int, index: bool) -> List[Hit]:
+        """Retrieve hits for a query."""
+        return [
+            Hit(doc_id="d1", score=0.9),
+            Hit(doc_id="d2", score=0.7),
+        ][:top_k]
+
+    pipeline = Pipeline(functions=[index, retrieve])
+    runner = Runner(pipeline=pipeline, mode="daft")
+
+    inputs = {
+        "corpus": {"d1": "text1", "d2": "text2"},
+        "query": [
+            Query(id="q1", text="query1"),
+            Query(id="q2", text="query2"),
+            Query(id="q3", text="query3"),
+        ],
+        "top_k": 2,
+    }
+
+    result = runner.run(inputs=inputs)
+
+    # Check non-mapped function result
+    assert result["index"] is True
+
+    # Check mapped function results
+    assert "hits" in result
+    assert len(result["hits"]) == 3  # One list per query
+    assert all(isinstance(hits, list) for hits in result["hits"])
+    assert all(len(hits) == 2 for hits in result["hits"])  # top_k=2
+    assert all(isinstance(hit, Hit) for hits in result["hits"] for hit in hits)

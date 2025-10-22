@@ -221,8 +221,20 @@ class Runner:
         pipeline = self.pipeline
         order = pipeline.topo({**constants, map_axis: items[0]})
 
-        # We'll iteratively add columns to df for each node's output
+        # First pass: execute non-mapped functions once and add to constants
+        # (These are functions without a map_axis that don't depend on mapped data)
         for node in order:
+            if node.meta.map_axis is None:
+                # This is a non-mapped function - execute it once
+                kwargs = {p: constants[p] for p in node.params if p in constants}
+                result = node.fn(**kwargs)
+                constants[node.meta.output_name] = result
+
+        # Second pass: process only mapped functions in batch
+        mapped_nodes = [n for n in order if n.meta.map_axis is not None]
+
+        # We'll iteratively add columns to df for each mapped node's output
+        for node in mapped_nodes:
             arg_names = node.params
             series_args: List[Any] = []
             deserializers: List[Callable[[Dict], Any]] = []
@@ -300,14 +312,16 @@ class Runner:
             df = df.select(*keep_cols, new_col_expr.alias(node.meta.output_name))
 
         # Finalize: collect wanted outputs
-        out_py = df.to_pylist()
         merged: Dict[str, Any] = dict(constants)
 
-        # Get final output name
-        final_name = order[-1].meta.output_name if order else None
-        if final_name:
+        # If we have mapped nodes, collect their outputs from the dataframe
+        if mapped_nodes:
+            out_py = df.to_pylist()
+
+            # Get final output name from the last mapped node
+            final_name = mapped_nodes[-1].meta.output_name
             # Reconstruct Pydantic models from dicts
-            hints = get_type_hints(order[-1].fn)
+            hints = get_type_hints(mapped_nodes[-1].fn)
             return_type = hints.get("return", Any)
 
             # Check if return type is List[BaseModel]

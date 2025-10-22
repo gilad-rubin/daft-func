@@ -2,7 +2,7 @@
 
 import pytest
 
-from daft_func.pipeline import Pipeline, NodeMeta
+from daft_func.pipeline import NodeMeta, Pipeline
 
 
 def test_pipeline_add_node():
@@ -81,7 +81,7 @@ def test_pipeline_topo_sort_circular_deps():
     registry.add(func_a, NodeMeta(output_name="a_out"))
     registry.add(func_b, NodeMeta(output_name="b_out"))
 
-    with pytest.raises(RuntimeError, match="Cannot resolve dependencies"):
+    with pytest.raises(RuntimeError, match="Cannot resolve pipeline dependencies"):
         registry.topo({"x": 5})
 
 
