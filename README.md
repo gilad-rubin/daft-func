@@ -12,6 +12,7 @@ daft_func lets you build computational DAGs using simple Python functions with a
 🛡️ **Type Safety** - Full Pydantic model support with automatic schema inference  
 ✨ **Zero Boilerplate** - Decorator + type hints = complete specification  
 📊 **DAG Visualization** - Interactive Graphviz-based pipeline visualization with type annotations  
+💾 **Smart Caching** - Dependency-aware incremental caching with automatic invalidation  
 
 ## Quick Start
 
@@ -65,6 +66,40 @@ print(outputs["results"])
 # [Result(id='q1', score=2.5), Result(id='q2', score=2.5)]
 ```
 
+### Caching Example
+
+Enable intelligent caching to skip expensive recomputations:
+
+```python
+from daft_func import func, Pipeline, Runner, CacheConfig
+
+# Define expensive operations with caching
+@func(output="embeddings", cache=True, cache_key="model_v1")
+def encode(text: str, model: str) -> list:
+    # Expensive: LLM encoding
+    return expensive_model_encode(text, model)
+
+@func(output="result", cache=True)
+def process(embeddings: list, threshold: float) -> dict:
+    # Expensive: downstream processing
+    return compute_results(embeddings, threshold)
+
+# Create pipeline with caching enabled
+pipeline = Pipeline(functions=[encode, process])
+cache_config = CacheConfig(enabled=True, cache_dir=".cache")
+runner = Runner(pipeline=pipeline, cache_config=cache_config)
+
+# First run: executes both nodes
+result1 = runner.run(inputs={"text": "hello", "model": "bert", "threshold": 0.5})
+
+# Second run: change only threshold
+# encode uses cache (text and model unchanged)
+# process re-executes (threshold changed)
+result2 = runner.run(inputs={"text": "hello", "model": "bert", "threshold": 0.8})
+```
+
+See [Caching Usage Guide](docs/caching-usage.md) for more details.
+
 ## Visualization
 
 Visualize your pipeline DAG with type annotations and dependency relationships:
@@ -96,7 +131,7 @@ viz = pipeline.visualize(
 The visualization shows:
 - Input parameters (green, dashed boxes) with type annotations
 - Function nodes (blue, rounded boxes) with output types
-- Dependency edges labeled with parameter names
+- Dependency edges showing connections between nodes
 - Default values displayed on parameters
 
 ## Running the Examples
@@ -174,6 +209,8 @@ runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=10)
 ## Documentation
 
 - **[Overview](docs/overview.md)**: High-level architecture and vision
+- **[Caching Usage](docs/caching-usage.md)**: Complete guide to dependency-aware caching
+- **[Caching Design](docs/caching.md)**: Technical design of the caching system
 - **[Fixes Applied](docs/fixes-applied.md)**: Technical details of Daft integration fixes
 - **[Refactoring Summary](docs/refactoring-summary.md)**: Complete refactoring details
 

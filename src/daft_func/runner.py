@@ -13,6 +13,12 @@ from typing import (
 
 from pydantic import BaseModel
 
+from daft_func.cache import (
+    CacheConfig,
+    compute_signature,
+    create_stores,
+    signatures_match,
+)
 from daft_func.pipeline import Pipeline
 from daft_func.types import DAFT_AVAILABLE, daft_datatype
 
@@ -30,7 +36,11 @@ class Runner:
     """
 
     def __init__(
-        self, pipeline: Pipeline, mode: str = "auto", batch_threshold: int = 2
+        self,
+        pipeline: Pipeline,
+        mode: str = "auto",
+        batch_threshold: int = 2,
+        cache_config: Optional[CacheConfig] = None,
     ):
         """Initialize runner with pipeline, execution mode and batch threshold.
 
@@ -38,10 +48,22 @@ class Runner:
             pipeline: The Pipeline instance containing the DAG nodes
             mode: Execution mode ("local", "daft", or "auto")
             batch_threshold: Minimum number of items to trigger Daft batching in auto mode
+            cache_config: Optional caching configuration
         """
         self.pipeline = pipeline
         self.mode = mode
         self.batch_threshold = batch_threshold
+        self.cache_config = cache_config or CacheConfig()
+
+        # Initialize cache stores if enabled
+        if self.cache_config.enabled:
+            self.meta_store, self.blob_store = create_stores(self.cache_config)
+        else:
+            self.meta_store = None
+            self.blob_store = None
+
+        # Track signatures for current run
+        self._current_signatures: Dict[str, str] = {}
 
     def run(self, *, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the DAG given initial inputs.
@@ -52,6 +74,9 @@ class Runner:
         Returns:
             Dictionary containing all outputs including final results
         """
+        # Reset signatures for this run
+        self._current_signatures = {}
+
         pipeline = self.pipeline
 
         # Determine if we are batching based on any node's map_axis param presence + list input
@@ -94,8 +119,58 @@ class Runner:
 
         for node in order:
             kwargs = {p: outputs[p] for p in node.params if p in outputs}
-            res = node.fn(**kwargs)
-            outputs[node.meta.output_name] = res
+
+            # Check if caching is enabled for this node
+            use_cache = (
+                self.cache_config.enabled
+                and node.meta.cache
+                and self.meta_store is not None
+                and self.blob_store is not None
+            )
+
+            if use_cache:
+                # Compute signature for this node
+                env_hash = node.meta.cache_key or self.cache_config.env_hash
+                new_sig = compute_signature(
+                    node_name=node.meta.output_name,
+                    fn=node.fn,
+                    kwargs=kwargs,
+                    parent_sigs=self._current_signatures,
+                    env_hash=env_hash,
+                    dependency_depth=self.cache_config.dependency_depth,
+                )
+
+                # Check for cache hit
+                stored_sig = self.meta_store.get(node.meta.output_name)
+                cache_hit = stored_sig is not None and signatures_match(
+                    new_sig, stored_sig
+                )
+
+                if cache_hit:
+                    # Cache hit - try to load from blob store
+                    cached_value = self.blob_store.get(node.meta.output_name)
+                    if cached_value is not None:
+                        outputs[node.meta.output_name] = cached_value
+                        # Store signature for downstream nodes
+                        sig_str = f"{new_sig.code_hash}{new_sig.env_hash}{new_sig.inputs_hash}{new_sig.deps_hash}"
+                        self._current_signatures[node.meta.output_name] = sig_str
+                        continue
+
+                # Cache miss or failed to load - execute node
+                res = node.fn(**kwargs)
+                outputs[node.meta.output_name] = res
+
+                # Save to cache
+                self.blob_store.set(node.meta.output_name, res)
+                self.meta_store.set(new_sig)
+
+                # Store signature for downstream nodes
+                sig_str = f"{new_sig.code_hash}{new_sig.env_hash}{new_sig.inputs_hash}{new_sig.deps_hash}"
+                self._current_signatures[node.meta.output_name] = sig_str
+            else:
+                # No caching - just execute
+                res = node.fn(**kwargs)
+                outputs[node.meta.output_name] = res
 
         return outputs
 
@@ -110,6 +185,8 @@ class Runner:
         aggregated: List[Dict[str, Any]] = []
 
         for it in items:
+            # Reset signatures for each item
+            self._current_signatures = {}
             per_inputs = {**constants, map_axis: it}
             per_out = self._run_single(per_inputs)
             aggregated.append(per_out)

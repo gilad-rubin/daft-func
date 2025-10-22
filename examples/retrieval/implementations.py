@@ -20,12 +20,16 @@ def normalize(text: str) -> set[str]:
 class ToyRetriever:
     """Simple token-overlap based retriever for demonstration."""
 
-    def __init__(self, corpus: Dict[str, str]):
+    def __init__(self, config: dict = {}):
         """Initialize with a document corpus.
 
         Args:
             corpus: Dictionary mapping doc_id to document text
         """
+        self.config = config
+
+    def index(self, corpus: Dict[str, str]):
+        """Index the corpus."""
         self._doc_tokens = {doc_id: normalize(txt) for doc_id, txt in corpus.items()}
 
     def retrieve(self, query: Query, top_k: int) -> RetrievalResult:

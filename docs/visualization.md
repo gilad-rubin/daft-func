@@ -49,6 +49,7 @@ The `visualize()` method accepts several parameters:
 
 - **orient**: Graph orientation - 'TB' (top-bottom), 'LR' (left-right), 'BT' (bottom-top), 'RL' (right-left)
 - **show_legend**: Whether to display the legend (default: False)
+- **min_arg_group_size**: Minimum number of parameters to group together (default: 1, None to disable)
 - **figsize**: Tuple of (width, height) for the figure size
 - **filename**: Path to save the visualization (e.g., "output.png", "output.svg")
 - **style**: Custom GraphvizStyle object for advanced styling
@@ -74,6 +75,27 @@ viz = pipeline.visualize(
 )
 ```
 
+### Parameter Grouping
+
+When a function has multiple input parameters used exclusively by that function, they can be grouped together in the visualization for clarity:
+
+```python
+@func(output="result")
+def complex_process(a: int, b: str, c: float, d: bool) -> dict:
+    return {"sum": a + c, "text": b, "flag": d}
+
+pipeline = Pipeline(functions=[complex_process])
+
+# With grouping (default: min_arg_group_size=1)
+# Parameters a, b, c, d will be grouped in a table since they're all exclusive to this function
+viz = pipeline.visualize(min_arg_group_size=2)
+
+# Without grouping
+viz = pipeline.visualize(min_arg_group_size=None)
+```
+
+The grouping only applies to parameters that are used by a single function. If a parameter is shared by multiple functions, it remains as a separate node.
+
 ## Visual Elements
 
 The visualization includes:
@@ -83,16 +105,22 @@ The visualization includes:
    - Displays default values if present
    - Example: `x : int` or `offset : int = 5`
 
-2. **Function Nodes** (Blue, Rounded Boxes)
+2. **Grouped Input Parameters** (Green, Solid Boxes with Table)
+   - Multiple parameters grouped together when used exclusively by one function
+   - Each parameter shown as a table row with type and default value
+   - Only appears when `min_arg_group_size` threshold is met
+
+3. **Function Nodes** (Blue, Rounded Boxes)
    - Function name as header
    - Output name with return type
    - Example: `double` → `doubled : int`
 
-3. **Dependency Edges**
-   - Labeled with parameter names being passed
+4. **Dependency Edges**
+   - Show connections between nodes
    - Color-coded by source type (green for inputs, blue for function outputs)
+   - Edge labels are hidden for cleaner visualization
 
-4. **Legend** (Optional)
+5. **Legend** (Optional)
    - Shows node type meanings
    - Useful for complex pipelines
 

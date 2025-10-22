@@ -46,8 +46,9 @@ def main():
     print("\nVisualization features:")
     print("  - Input parameters (green, dashed boxes) with type annotations")
     print("  - Function nodes (blue, rounded boxes) with output types")
-    print("  - Dependency edges labeled with parameter names")
+    print("  - Dependency edges showing data flow")
     print("  - Default values displayed on parameters (offset=5)")
+    print("  - Parameter grouping for functions with multiple exclusive inputs")
 
     print("\n" + "=" * 70)
     print("🎉 Demo complete!")

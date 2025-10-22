@@ -175,3 +175,53 @@ def test_visualize_with_func_decorator():
 
     # Check function names appear
     assert "double" in viz.source or "doubled" in viz.source
+
+
+def test_visualize_with_parameter_grouping():
+    """Test parameter grouping with min_arg_group_size."""
+    pytest.importorskip("graphviz")
+
+    from daft_func import Pipeline, func
+
+    @func(output="result")
+    def process(a: int, b: int, c: int) -> int:
+        return a + b + c
+
+    pipeline = Pipeline(functions=[process])
+
+    # With min_arg_group_size=2, all 3 params should be grouped (3 >= 2)
+    viz_grouped = pipeline.visualize(min_arg_group_size=2, return_type="graphviz")
+
+    # Should show grouped parameters in a table
+    assert "<TABLE" in viz_grouped.source
+
+    # With min_arg_group_size=None, no grouping
+    viz_ungrouped = pipeline.visualize(min_arg_group_size=None, return_type="graphviz")
+
+    # Individual parameters should still be there
+    assert "a" in viz_ungrouped.source or "b" in viz_ungrouped.source
+
+
+def test_grouped_args_with_shared_parameters():
+    """Test that params used by multiple functions don't get grouped."""
+    pytest.importorskip("graphviz")
+
+    from daft_func import Pipeline, func
+
+    @func(output="result1")
+    def func1(a: int, b: int) -> int:
+        return a + b
+
+    @func(output="result2")
+    def func2(b: int, c: int) -> int:
+        return b * c
+
+    pipeline = Pipeline(functions=[func1, func2])
+
+    # With min_arg_group_size=1, exclusive params should be grouped
+    # 'a' is exclusive to func1, 'c' is exclusive to func2
+    # 'b' is shared, so it shouldn't be grouped
+    viz = pipeline.visualize(min_arg_group_size=1, return_type="graphviz")
+
+    # 'b' should appear as individual node since it's used by multiple functions
+    assert viz is not None

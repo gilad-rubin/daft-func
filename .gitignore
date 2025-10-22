@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Cache directories
+.cache/
+
 
 # START Ruler Generated Files
 *.bak

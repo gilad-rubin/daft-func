@@ -14,6 +14,10 @@ class NodeMeta:
     map_axis: Optional[str] = None  # e.g., "query"
     # If nodes align by a key (same item across nodes), what attribute on the map_axis carries it?
     key_attr: Optional[str] = None  # e.g., "query_uuid"
+    # Caching configuration
+    cache: bool = False  # Enable caching for this node
+    cache_key: Optional[str] = None  # Optional env_hash override
+    cache_backend: Optional[str] = None  # Optional backend override (diskcache/cachier)
 
 
 @dataclass(frozen=True)
