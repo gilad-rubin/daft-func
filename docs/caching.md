@@ -49,3 +49,181 @@ This design explicitly handles your key scenarios:
 ### Final Steps
 
 To validate this design, we concluded by creating a **test suite** with 5 specific `pytest` examples (e.g., `test_downstream_only_change`, `test_full_cache_hit`, `test_upstream_change`) and provided **guidance for an LLM** on how to surgically integrate this logic into the existing `pipefunc` codebase.
+
+---
+
+## Object Serialization for Cache Keys
+
+### Problem
+
+When using custom objects (like retrievers, models, or other stateful components) as function inputs, the caching system needs to determine whether two object instances should be treated as equivalent for caching purposes.
+
+Previously, the system included `id(obj)` in the hash, which meant:
+- Run 1: New `ToyRetriever()` instance → MISS ✓
+- Run 2: Same instance in memory → HIT ✓
+- Run 3: New `ToyRetriever()` instance → MISS ✗ (should be HIT!)
+
+### Solution: Smart Object Serialization
+
+The caching system now uses a multi-strategy approach to serialize objects for hashing:
+
+#### Strategy 1: Custom Cache Keys via `__cache_key__()`
+
+Classes can define their own cache key method:
+
+```python
+class ToyRetriever:
+    def __init__(self, config: dict = {}):
+        self.config = config
+    
+    def __cache_key__(self):
+        """Return deterministic cache key based on configuration."""
+        import json
+        return f"{self.__class__.__name__}::{json.dumps(self.config, sort_keys=True)}"
+```
+
+**When to use:** Best for objects where you want explicit control over what makes them equivalent for caching. Recommended for complex stateful objects.
+
+#### Strategy 2: Automatic Deep Serialization
+
+If `__cache_key__()` is not defined, the system automatically serializes public attributes (non-`_` prefixed) up to a configurable depth:
+
+```python
+class SimpleRetriever:
+    def __init__(self, model_name: str, top_k: int = 10):
+        self.model_name = model_name
+        self.top_k = top_k
+        self._internal_state = {}  # Excluded from hash (private)
+
+# Two instances with same config will share cache:
+r1 = SimpleRetriever("bert-base", top_k=10)
+r2 = SimpleRetriever("bert-base", top_k=10)
+# r1 and r2 will produce same cache hash!
+```
+
+**When to use:** Good for simple objects where public attributes fully determine behavior. No need to write custom serialization code.
+
+### Configuring Serialization Depth
+
+Control how deep the serialization goes with `serialization_depth`:
+
+```python
+cache_config = CacheConfig(
+    enabled=True,
+    backend=DiskCache(cache_dir=".cache"),
+    serialization_depth=2,  # Default: 2 levels deep
+)
+```
+
+- **Depth 0:** Objects immediately use `id()`, different instances always differ
+- **Depth 1:** Serialize object's direct attributes, nested objects use `id()`
+- **Depth 2:** Serialize object and its nested objects (default)
+- **Depth 3+:** Continue deeper for highly nested structures
+
+### Complete Example
+
+```python
+from typing import Dict, List
+from daft_func import Pipeline, Runner, func, CacheConfig, DiskCache
+
+# Option 1: Define custom cache key
+class ConfigurableRetriever:
+    def __init__(self, model: str, settings: dict):
+        self.model = model
+        self.settings = settings
+    
+    def __cache_key__(self):
+        import json
+        return f"Retriever::{self.model}::{json.dumps(self.settings, sort_keys=True)}"
+
+# Option 2: Rely on automatic serialization
+class SimpleReranker:
+    def __init__(self, threshold: float = 0.5):
+        self.threshold = threshold
+        # No __cache_key__ needed - automatic serialization works!
+
+@func(output="results", cache=True)
+def retrieve_and_rerank(
+    retriever: ConfigurableRetriever, 
+    reranker: SimpleReranker, 
+    query: str
+) -> List[str]:
+    # ... implementation
+    pass
+
+# Create pipeline
+pipeline = Pipeline(functions=[retrieve_and_rerank])
+runner = Runner(
+    pipeline=pipeline,
+    cache_config=CacheConfig(
+        enabled=True,
+        backend=DiskCache(cache_dir=".cache"),
+        serialization_depth=2,  # Adjust as needed
+    )
+)
+
+# First run: cache miss
+result1 = runner.run(inputs={
+    "retriever": ConfigurableRetriever("bert", {"top_k": 10}),
+    "reranker": SimpleReranker(threshold=0.5),
+    "query": "test query"
+})
+
+# Second run with NEW instances but SAME config: cache hit!
+result2 = runner.run(inputs={
+    "retriever": ConfigurableRetriever("bert", {"top_k": 10}),  # New instance
+    "reranker": SimpleReranker(threshold=0.5),  # New instance
+    "query": "test query"
+})
+# ✓ Cache HIT - same configuration = same cache key
+```
+
+### Best Practices
+
+1. **For stateful objects with complex initialization:** Implement `__cache_key__()`
+2. **For simple configuration objects:** Rely on automatic serialization
+3. **For stateless singletons:** Return just the class name:
+   ```python
+   def __cache_key__(self):
+       return self.__class__.__name__
+   ```
+4. **Exclude private state:** Private attributes (`_attr`) are automatically excluded from serialization
+5. **Adjust depth as needed:** If you have deeply nested configurations, increase `serialization_depth`
+
+### Important Edge Cases
+
+**Objects with only private attributes:** If an object has NO public attributes (all attributes start with `_`), the system falls back to using object ID. This is a safety feature for objects that rely on side effects:
+
+```python
+class StatefulProcessor:
+    def __init__(self):
+        self._initialized = False  # Private attribute
+        self._data = None           # Private attribute
+    
+    def initialize(self, data):
+        self._initialized = True
+        self._data = data
+
+# Different instances will hash differently (uses object ID)
+# This prevents cache collisions for objects with side effects
+processor1 = StatefulProcessor()
+processor2 = StatefulProcessor()
+# These will NOT share cache (correctly, since they need separate initialization)
+```
+
+If you want such objects to share cache, add a `__cache_key__()` method or expose configuration as public attributes.
+
+### Testing Object Serialization
+
+Run the comprehensive test suite to verify serialization behavior:
+
+```bash
+uv run pytest tests/test_cache_object_serialization.py -v
+```
+
+This tests all scenarios:
+- Custom `__cache_key__()` methods
+- Automatic serialization
+- Depth limits
+- Nested objects
+- Mixed object types

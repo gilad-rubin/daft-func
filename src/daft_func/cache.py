@@ -228,67 +228,102 @@ def compute_deps_hash(
     return ""
 
 
-def compute_inputs_hash(kwargs: Dict[str, Any]) -> str:
+def compute_inputs_hash(
+    kwargs: Dict[str, Any],
+    serialization_depth: int = 2,
+    *,
+    force_instance_ids: bool = False,
+) -> str:
     """Compute hash of input parameters with smart object handling.
 
     Args:
         kwargs: Dictionary of input parameters
+        serialization_depth: Maximum depth for recursive object serialization
 
     Returns:
         Hash string of inputs
     """
 
-    def _serialize(obj: Any) -> Any:
-        """Serialize objects for hashing with multiple strategies."""
+    def _serialize(obj: Any, current_depth: int = 0) -> Any:
+        """Serialize objects for hashing with depth-limited recursion."""
 
         # Strategy 1: Object defines its own cache key
         if hasattr(obj, "__cache_key__") and callable(obj.__cache_key__):
+            # For side-effect style nodes (e.g., indexers returning bool/None),
+            # we must distinguish different instances even if their __cache_key__
+            # is identical, otherwise side effects may be skipped incorrectly.
+            if force_instance_ids:
+                return {
+                    "__cache_key__": str(obj.__cache_key__()),
+                    "__id__": id(obj),
+                }
             return {"__cache_key__": str(obj.__cache_key__())}
 
         # Strategy 2: Pydantic models
         if isinstance(obj, BaseModel):
             return obj.model_dump()
 
-        # Strategy 3: Lists and tuples (recursive)
+        # Strategy 3: Lists and tuples (recursive with depth tracking)
         elif isinstance(obj, (list, tuple)):
-            return [_serialize(item) for item in obj]
+            return [_serialize(item, current_depth) for item in obj]
 
-        # Strategy 4: Dictionaries (recursive)
+        # Strategy 3b: Sets and frozensets (order-independent deterministic serialization)
+        elif isinstance(obj, (set, frozenset)):
+            try:
+                items = [_serialize(item, current_depth) for item in obj]
+                # Try direct sort first; if unorderable, sort by JSON string
+                try:
+                    items_sorted = sorted(items)
+                except TypeError:
+                    import json as _json
+
+                    items_sorted = sorted(
+                        [_json.dumps(it, sort_keys=True, default=str) for it in items]
+                    )
+                return {"__set__": items_sorted}
+            except Exception:
+                # Fallback to string representation if something goes wrong
+                return {"__set__": sorted([str(x) for x in obj])}
+
+        # Strategy 4: Dictionaries (recursive with depth tracking)
         elif isinstance(obj, dict):
-            return {k: _serialize(v) for k, v in obj.items()}
+            return {k: _serialize(v, current_depth) for k, v in obj.items()}
 
         # Strategy 5: Simple hashable types
         elif isinstance(obj, (str, int, float, bool, type(None))):
             return obj
 
-        # Strategy 6: Objects with __dict__ (filter private/mutable attributes)
-        elif hasattr(obj, "__dict__"):
-            # Only hash public attributes (exclude _ prefixed ones)
-            # This prevents state changes from invalidating cache
+        # Strategy 6: Deep object serialization with depth limit
+        elif hasattr(obj, "__dict__") and current_depth < serialization_depth:
+            # Only serialize public attributes (exclude _ prefixed ones)
             state = {}
             for k, v in obj.__dict__.items():
                 if not k.startswith("_") and not callable(v):
                     try:
-                        state[k] = _serialize(v)
-                    except (TypeError, ValueError):
+                        # Recursively serialize, incrementing depth
+                        state[k] = _serialize(v, current_depth + 1)
+                    except (TypeError, ValueError, RecursionError):
                         # If can't serialize, use string representation
                         state[k] = str(v)
 
-            # Always include object ID along with state to distinguish instances
-            # This ensures different instances hash differently even with identical state
-            # Critical for stateful objects that rely on side effects (e.g., initialization)
+            # If object has NO public attributes, it might rely on side effects
+            # Use object ID to distinguish different instances
+            if not state:
+                return {"__id__": id(obj), "__class__": obj.__class__.__name__}
+
+            # Only include class name and state (no object ID!)
+            # This allows instances with identical configuration to share cache
             return {
                 "__class__": obj.__class__.__name__,
-                "__id__": id(obj),
                 "__state__": state,
             }
 
-        # Fallback: Use object id (stable within same Python session)
+        # Fallback: Use object ID only when depth limit reached or can't serialize
         else:
-            return {"__id__": id(obj)}
+            return {"__id__": id(obj), "__class__": obj.__class__.__name__}
 
     # Sort keys for consistent hashing
-    serialized = {k: _serialize(v) for k, v in sorted(kwargs.items())}
+    serialized = {k: _serialize(v, 0) for k, v in sorted(kwargs.items())}
     json_str = json.dumps(serialized, sort_keys=True, default=str)
     return hashlib.sha256(json_str.encode()).hexdigest()[:16]
 
@@ -300,6 +335,7 @@ def compute_signature(
     parent_sigs: Dict[str, str],
     env_hash: Optional[str] = None,
     dependency_depth: int = 2,
+    serialization_depth: int = 2,
 ) -> NodeSignature:
     """Compute complete signature for a node.
 
@@ -310,6 +346,7 @@ def compute_signature(
         parent_sigs: Signatures of parent nodes
         env_hash: Optional environment hash override
         dependency_depth: How many levels of dependencies to track
+        serialization_depth: How deep to serialize object attributes
 
     Returns:
         Complete NodeSignature
@@ -318,7 +355,22 @@ def compute_signature(
 
     code_hash = compute_code_hash(fn)
     deps_code_hash = compute_deps_hash(fn, depth=dependency_depth)
-    inputs_hash = compute_inputs_hash(kwargs)
+
+    # Heuristic: treat functions that return bool/None as potential side-effect nodes.
+    # For such nodes, include object instance IDs (even when __cache_key__ exists)
+    # to avoid skipping necessary initialization on new instances.
+    try:
+        from typing import get_type_hints
+
+        hints = get_type_hints(fn)
+        ret = hints.get("return", None)
+        force_ids = ret is bool or ret is type(None)
+    except Exception:
+        force_ids = False
+
+    inputs_hash = compute_inputs_hash(
+        kwargs, serialization_depth=serialization_depth, force_instance_ids=force_ids
+    )
 
     # Combine parent signatures
     parent_hash = hashlib.sha256(
@@ -547,6 +599,7 @@ class CacheConfig:
     dependency_depth: int = 2  # levels of imports to track
     verbose: bool = True  # print cache status after each run
     per_item_caching: bool = True  # Enable per-item caching for map_axis nodes
+    serialization_depth: int = 2  # depth for object attribute serialization
 
 
 # Legacy factory function - deprecated, use backend classes directly

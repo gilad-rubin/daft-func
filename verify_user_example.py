@@ -1,6 +1,6 @@
 """Verify the user's original example now works."""
 
-from typing import Dict, List
+from typing import List
 
 from daft_func import Pipeline, Runner, func
 from examples.retrieval import (
@@ -9,22 +9,9 @@ from examples.retrieval import (
     RerankedHit,
     Reranker,
     RetrievalResult,
-    Retriever,
-    ToyRetriever,
+    build_index_artifact,
+    retrieve_with_index,
 )
-
-
-@func(output="index")
-def index(retriever: Retriever, corpus: Dict[str, str], test: bool = True) -> bool:
-    retriever.index(corpus)
-    return True
-
-
-@func(output="hits", map_axis="query", key_attr="query_uuid")
-def retrieve(
-    retriever: Retriever, query: Query, top_k: int, index: bool
-) -> RetrievalResult:
-    return retriever.retrieve(query, top_k=top_k)
 
 
 @func(output="reranked_hits", map_axis="query", key_attr="query_uuid")
@@ -35,7 +22,7 @@ def rerank(
 
 
 # Create pipeline with explicit functions
-pipeline = Pipeline(functions=[index, retrieve, rerank])
+pipeline = Pipeline(functions=[build_index_artifact, retrieve_with_index, rerank])
 
 corpus = {
     "d1": "a quick brown fox jumps",
@@ -44,9 +31,7 @@ corpus = {
 }
 
 multi_inputs = {
-    "test": True,
     "corpus": corpus,
-    "retriever": ToyRetriever(),
     "reranker": IdentityReranker(),
     "query": [
         Query(query_uuid="q1", text="quick brown"),
@@ -64,6 +49,5 @@ result = runner.run(inputs=multi_inputs)
 
 print("\n✓ Success! No AttributeError")
 print(f"\nResult keys: {result.keys()}")
-print(f"Index result: {result['index']}")
 print(f"Number of queries: {len(result['reranked_hits'])}")
 print(f"First reranked hits: {result['reranked_hits'][0]}")

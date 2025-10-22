@@ -9,7 +9,12 @@ from .models import (
     RetrievalResult,
     Retriever,
 )
-from .nodes import rerank, retrieve
+from .nodes import (
+    build_index_artifact,
+    rerank,
+    retrieve,
+    retrieve_with_index,
+)
 
 __all__ = [
     "Query",
@@ -21,5 +26,7 @@ __all__ = [
     "ToyRetriever",
     "IdentityReranker",
     "retrieve",
+    "build_index_artifact",
+    "retrieve_with_index",
     "rerank",
 ]

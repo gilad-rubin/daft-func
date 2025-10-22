@@ -28,6 +28,12 @@ class ToyRetriever:
         """
         self.config = config
 
+    def __cache_key__(self):
+        """Return deterministic cache key based on configuration."""
+        import json
+
+        return f"{self.__class__.__name__}::{json.dumps(self.config, sort_keys=True)}"
+
     def index(self, corpus: Dict[str, str]):
         """Index the corpus."""
         self._doc_tokens = {doc_id: normalize(txt) for doc_id, txt in corpus.items()}
@@ -45,6 +51,10 @@ class ToyRetriever:
 
 class IdentityReranker:
     """Pass-through reranker that returns hits unchanged."""
+
+    def __cache_key__(self):
+        """Return deterministic cache key for stateless reranker."""
+        return self.__class__.__name__
 
     def rerank(
         self, query: Query, hits: RetrievalResult, top_k: int

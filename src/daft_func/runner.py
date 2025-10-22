@@ -165,6 +165,7 @@ class Runner:
                     parent_sigs=self._current_signatures,
                     env_hash=env_hash,
                     dependency_depth=self.cache_config.dependency_depth,
+                    serialization_depth=self.cache_config.serialization_depth,
                 )
 
                 # Check for cache hit
