@@ -17,7 +17,7 @@ class NodeMeta:
     # Caching configuration
     cache: bool = False  # Enable caching for this node
     cache_key: Optional[str] = None  # Optional env_hash override
-    cache_backend: Optional[str] = None  # Optional backend override (diskcache/cachier)
+    cache_backend: Optional[str] = None  # Optional backend override (diskcache)
 
 
 @dataclass(frozen=True)

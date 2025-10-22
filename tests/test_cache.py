@@ -315,37 +315,6 @@ def test_cache_backend_diskcache(temp_cache_dir):
     assert (cache_path / "blobs").exists()
 
 
-def test_cache_backend_cachier(temp_cache_dir):
-    """Test cachier backend."""
-    executions = []
-
-    @func(output="result", cache=True)
-    def compute(x: int) -> int:
-        executions.append(x)
-        return x * 2
-
-    pipeline = Pipeline(functions=[compute])
-    cache_config = CacheConfig(
-        enabled=True, backend="cachier", cache_dir=temp_cache_dir
-    )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
-
-    # First run
-    result1 = runner.run(inputs={"x": 5})
-    assert result1["result"] == 10
-    assert len(executions) == 1
-
-    # Second run - should use cache
-    result2 = runner.run(inputs={"x": 5})
-    assert result2["result"] == 10
-    assert len(executions) == 1
-
-    # Verify cache files exist
-    cache_path = Path(temp_cache_dir)
-    assert (cache_path / "metadata.json").exists()
-    assert (cache_path / "cachier_blobs").exists()
-
-
 def test_dependency_depth(temp_cache_dir):
     """Test that dependency_depth parameter is used."""
 

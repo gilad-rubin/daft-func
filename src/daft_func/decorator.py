@@ -23,7 +23,7 @@ def func(
         key_attr: Attribute on the map_axis object that uniquely identifies items (alignment)
         cache: Enable caching for this node
         cache_key: Optional environment hash override for cache invalidation
-        cache_backend: Optional backend override (diskcache or cachier)
+        cache_backend: Optional backend override (diskcache)
 
     Example:
         @func(output="result", map_axis="query", key_attr="query_uuid", cache=True)

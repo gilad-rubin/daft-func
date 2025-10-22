@@ -2,7 +2,7 @@
 
 Implements dependency-aware incremental caching with:
 - Signature-based cache invalidation
-- Multiple storage backends (diskcache, cachier)
+- Diskcache storage backend
 - Code change detection with dependency tracking
 """
 
@@ -22,7 +22,7 @@ class CacheConfig:
     """Configuration for caching behavior."""
 
     enabled: bool = False
-    backend: str = "diskcache"  # "diskcache" or "cachier"
+    backend: str = "diskcache"
     cache_dir: str = ".cache"
     env_hash: Optional[str] = None  # manual override
     dependency_depth: int = 2  # levels of imports to track
@@ -450,49 +450,6 @@ class DiskCacheBlobStore:
         self.cache.clear()
 
 
-class CachierBlobStore:
-    """Cachier-based blob store (using pickle backend)."""
-
-    def __init__(self, cache_dir: str):
-        """Initialize cachier blob store.
-
-        Args:
-            cache_dir: Directory for cache storage
-        """
-        self.cache_dir = Path(cache_dir) / "cachier_blobs"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._cache: Dict[str, Any] = {}
-
-    def get(self, key: str) -> Optional[Any]:
-        """Retrieve cached output."""
-        import pickle
-
-        cache_file = self.cache_dir / f"{key}.pkl"
-        if cache_file.exists():
-            try:
-                with open(cache_file, "rb") as f:
-                    return pickle.load(f)
-            except (pickle.PickleError, OSError):
-                return None
-        return None
-
-    def set(self, key: str, value: Any) -> None:
-        """Store output."""
-        import pickle
-
-        cache_file = self.cache_dir / f"{key}.pkl"
-        with open(cache_file, "wb") as f:
-            pickle.dump(value, f)
-
-    def clear(self) -> None:
-        """Clear all stored outputs."""
-        import shutil
-
-        if self.cache_dir.exists():
-            shutil.rmtree(self.cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-
 def create_stores(
     config: CacheConfig,
 ) -> tuple[MetaStore, BlobStore]:
@@ -508,8 +465,6 @@ def create_stores(
 
     if config.backend == "diskcache":
         blob_store = DiskCacheBlobStore(config.cache_dir)
-    elif config.backend == "cachier":
-        blob_store = CachierBlobStore(config.cache_dir)
     else:
         raise ValueError(f"Unknown cache backend: {config.backend}")
 
