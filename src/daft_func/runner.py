@@ -15,8 +15,11 @@ from pydantic import BaseModel
 
 from daft_func.cache import (
     CacheConfig,
+    CacheStats,
     compute_signature,
     create_stores,
+    get_item_cache_key,
+    make_cache_key,
     signatures_match,
 )
 from daft_func.pipeline import Pipeline
@@ -65,6 +68,9 @@ class Runner:
         # Track signatures for current run
         self._current_signatures: Dict[str, str] = {}
 
+        # Track cache statistics
+        self._cache_stats: Optional[CacheStats] = None
+
     def run(self, *, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the DAG given initial inputs.
 
@@ -76,6 +82,12 @@ class Runner:
         """
         # Reset signatures for this run
         self._current_signatures = {}
+
+        # Initialize cache stats if verbose logging enabled
+        if self.cache_config.enabled and self.cache_config.verbose:
+            self._cache_stats = CacheStats()
+        else:
+            self._cache_stats = None
 
         pipeline = self.pipeline
 
@@ -103,16 +115,24 @@ class Runner:
 
         # Execute based on strategy
         if batching:
-            return self._run_batch(inputs, map_axis)
+            result = self._run_batch(inputs, map_axis)
         elif batching_requested:
             # We have list inputs but using local/single execution - loop manually
-            return self._run_local_loop(inputs, map_axis)
+            result = self._run_local_loop(inputs, map_axis)
         else:
             # True single item execution
-            return self._run_single(inputs)
+            result = self._run_single(inputs)
+
+        # Print cache summary if enabled
+        if self._cache_stats:
+            self._cache_stats.print_summary()
+
+        return result
 
     def _run_single(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute DAG for a single item using pure Python."""
+        import time
+
         pipeline = self.pipeline
         outputs = dict(inputs)
         order = pipeline.topo(inputs)
@@ -129,10 +149,23 @@ class Runner:
             )
 
             if use_cache:
+                # Determine if this is a map_axis node and get item key
+                item_key = None
+                if (
+                    node.meta.map_axis
+                    and self.cache_config.per_item_caching
+                    and node.meta.map_axis in kwargs
+                ):
+                    item = kwargs[node.meta.map_axis]
+                    item_key = get_item_cache_key(item, node.meta.key_attr)
+
+                # Build cache key (includes item key for map_axis nodes)
+                cache_key = make_cache_key(node.meta.output_name, item_key)
+
                 # Compute signature for this node
                 env_hash = node.meta.cache_key or self.cache_config.env_hash
                 new_sig = compute_signature(
-                    node_name=node.meta.output_name,
+                    node_name=cache_key,  # Use extended key for per-item caching
                     fn=node.fn,
                     kwargs=kwargs,
                     parent_sigs=self._current_signatures,
@@ -141,36 +174,69 @@ class Runner:
                 )
 
                 # Check for cache hit
-                stored_sig = self.meta_store.get(node.meta.output_name)
+                stored_sig = self.meta_store.get(cache_key)
                 cache_hit = stored_sig is not None and signatures_match(
                     new_sig, stored_sig
                 )
 
                 if cache_hit:
                     # Cache hit - try to load from blob store
-                    cached_value = self.blob_store.get(node.meta.output_name)
+                    cached_value = self.blob_store.get(cache_key)
                     if cached_value is not None:
                         outputs[node.meta.output_name] = cached_value
                         # Store signature for downstream nodes
                         sig_str = f"{new_sig.code_hash}{new_sig.env_hash}{new_sig.inputs_hash}{new_sig.deps_hash}"
                         self._current_signatures[node.meta.output_name] = sig_str
+
+                        # Record cache hit event
+                        if self._cache_stats:
+                            self._cache_stats.record(
+                                node_name=node.meta.output_name,
+                                cache_enabled=True,
+                                cache_hit=True,
+                                loaded=True,
+                            )
                         continue
 
                 # Cache miss or failed to load - execute node
+                start_time = time.time()
                 res = node.fn(**kwargs)
+                execution_time = time.time() - start_time
                 outputs[node.meta.output_name] = res
 
                 # Save to cache
-                self.blob_store.set(node.meta.output_name, res)
+                self.blob_store.set(cache_key, res)
                 self.meta_store.set(new_sig)
 
                 # Store signature for downstream nodes
                 sig_str = f"{new_sig.code_hash}{new_sig.env_hash}{new_sig.inputs_hash}{new_sig.deps_hash}"
                 self._current_signatures[node.meta.output_name] = sig_str
+
+                # Record cache miss event
+                if self._cache_stats:
+                    self._cache_stats.record(
+                        node_name=node.meta.output_name,
+                        cache_enabled=True,
+                        cache_hit=False,
+                        loaded=False,
+                        execution_time=execution_time,
+                    )
             else:
                 # No caching - just execute
+                start_time = time.time()
                 res = node.fn(**kwargs)
+                execution_time = time.time() - start_time
                 outputs[node.meta.output_name] = res
+
+                # Record no-cache event
+                if self._cache_stats:
+                    self._cache_stats.record(
+                        node_name=node.meta.output_name,
+                        cache_enabled=False,
+                        cache_hit=False,
+                        loaded=False,
+                        execution_time=execution_time,
+                    )
 
         return outputs
 

@@ -26,6 +26,76 @@ class CacheConfig:
     cache_dir: str = ".cache"
     env_hash: Optional[str] = None  # manual override
     dependency_depth: int = 2  # levels of imports to track
+    verbose: bool = True  # print cache status after each run
+    per_item_caching: bool = True  # Enable per-item caching for map_axis nodes
+
+
+@dataclass
+class CacheEvent:
+    """Record of a cache operation for a single node."""
+
+    node_name: str
+    cache_enabled: bool
+    cache_hit: bool
+    loaded: bool  # whether output was actually loaded from cache
+    execution_time: float = 0.0  # seconds spent executing (if executed)
+
+
+class CacheStats:
+    """Statistics collector for cache operations during a run."""
+
+    def __init__(self):
+        self.events: list[CacheEvent] = []
+
+    def record(
+        self,
+        node_name: str,
+        cache_enabled: bool,
+        cache_hit: bool,
+        loaded: bool,
+        execution_time: float = 0.0,
+    ):
+        """Record a cache event."""
+        self.events.append(
+            CacheEvent(
+                node_name=node_name,
+                cache_enabled=cache_enabled,
+                cache_hit=cache_hit,
+                loaded=loaded,
+                execution_time=execution_time,
+            )
+        )
+
+    def print_summary(self):
+        """Print a concise summary of cache operations."""
+        if not self.events:
+            return
+
+        print("\n[CACHE]", end=" ")
+        parts = []
+
+        for event in self.events:
+            if not event.cache_enabled:
+                # Node doesn't use cache
+                status = f"{event.node_name}: NO-CACHE"
+                if event.execution_time > 0:
+                    status += f" ({event.execution_time:.2f}s)"
+            elif event.cache_hit:
+                if event.loaded:
+                    # Cache hit and output was loaded
+                    status = f"{event.node_name}: ✓ HIT"
+                else:
+                    # Cache hit but output not needed (lazy)
+                    status = f"{event.node_name}: ○ HIT (skipped)"
+            else:
+                # Cache miss, executed
+                status = f"{event.node_name}: ✗ MISS"
+                if event.execution_time > 0:
+                    status += f" ({event.execution_time:.2f}s)"
+
+            parts.append(status)
+
+        print(" | ".join(parts))
 
 
 @dataclass
@@ -169,7 +239,7 @@ def compute_deps_hash(
 
 
 def compute_inputs_hash(kwargs: Dict[str, Any]) -> str:
-    """Compute hash of input parameters.
+    """Compute hash of input parameters with smart object handling.
 
     Args:
         kwargs: Dictionary of input parameters
@@ -179,18 +249,46 @@ def compute_inputs_hash(kwargs: Dict[str, Any]) -> str:
     """
 
     def _serialize(obj: Any) -> Any:
-        """Serialize objects for hashing."""
+        """Serialize objects for hashing with multiple strategies."""
+
+        # Strategy 1: Object defines its own cache key
+        if hasattr(obj, "__cache_key__") and callable(obj.__cache_key__):
+            return {"__cache_key__": str(obj.__cache_key__())}
+
+        # Strategy 2: Pydantic models
         if isinstance(obj, BaseModel):
             return obj.model_dump()
+
+        # Strategy 3: Lists and tuples (recursive)
         elif isinstance(obj, (list, tuple)):
             return [_serialize(item) for item in obj]
+
+        # Strategy 4: Dictionaries (recursive)
         elif isinstance(obj, dict):
             return {k: _serialize(v) for k, v in obj.items()}
+
+        # Strategy 5: Simple hashable types
+        elif isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+
+        # Strategy 6: Objects with __dict__ (filter private/mutable attributes)
         elif hasattr(obj, "__dict__"):
-            # For other objects, try to get their dict
-            return str(obj.__dict__)
+            # Only hash public attributes (exclude _ prefixed ones)
+            # This prevents state changes from invalidating cache
+            state = {}
+            for k, v in obj.__dict__.items():
+                if not k.startswith("_") and not callable(v):
+                    try:
+                        state[k] = _serialize(v)
+                    except (TypeError, ValueError):
+                        # If can't serialize, use string representation
+                        state[k] = str(v)
+            # Include class name to distinguish different types
+            return {"__class__": obj.__class__.__name__, "__state__": state}
+
+        # Fallback: Use object id (stable within same Python session)
         else:
-            return str(obj)
+            return {"__id__": id(obj)}
 
     # Sort keys for consistent hashing
     serialized = {k: _serialize(v) for k, v in sorted(kwargs.items())}
@@ -435,3 +533,38 @@ def signatures_match(sig1: NodeSignature, sig2: NodeSignature) -> bool:
         and sig1.deps_hash == sig2.deps_hash
     )
 
+
+def get_item_cache_key(item: Any, key_attr: Optional[str] = None) -> str:
+    """Extract cache key from an item for map_axis nodes.
+
+    Args:
+        item: The item being processed
+        key_attr: Attribute name to use as unique identifier
+
+    Returns:
+        String identifier for the item
+    """
+    if key_attr and hasattr(item, key_attr):
+        return str(getattr(item, key_attr))
+    elif isinstance(item, BaseModel):
+        # For Pydantic models, try common ID fields
+        for attr in ["id", "uuid", "key", "name"]:
+            if hasattr(item, attr):
+                return str(getattr(item, attr))
+    # Fallback: use hash of the item
+    return str(hash(str(item)))
+
+
+def make_cache_key(node_name: str, item_key: Optional[str] = None) -> str:
+    """Create a cache key for a node, optionally including item identifier.
+
+    Args:
+        node_name: Name of the node output
+        item_key: Optional item identifier for map_axis nodes
+
+    Returns:
+        Cache key string
+    """
+    if item_key:
+        return f"{node_name}::{item_key}"
+    return node_name
