@@ -15,6 +15,7 @@ dependencies = [
     "ipywidgets>=8.1.7",
     "networkx>=3.5",
     "pydantic>=2.12.3",
+    "rich>=13.0.0",
     "tqdm>=4.67.1",
     "traitlets>=5.14.3",
 ]

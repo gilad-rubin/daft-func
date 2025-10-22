@@ -11,6 +11,7 @@ from .models import (
 )
 from .nodes import (
     build_index_artifact,
+    index,
     rerank,
     retrieve,
     retrieve_with_index,
@@ -25,6 +26,7 @@ __all__ = [
     "Reranker",
     "ToyRetriever",
     "IdentityReranker",
+    "index",
     "retrieve",
     "build_index_artifact",
     "retrieve_with_index",

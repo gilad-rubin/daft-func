@@ -14,19 +14,36 @@ from .models import (
 )
 
 
-@func(output="hits", map_axis="query", key_attr="query_uuid")
-def retrieve(retriever: Retriever, query: Query, top_k: int) -> RetrievalResult:
+@func(output="index_path", cache=True)
+def index(retriever: Retriever, corpus: Dict[str, str]) -> str:
+    """Index the corpus and return path to index file.
+
+    Args:
+        retriever: The retriever implementation
+        corpus: Dictionary mapping doc_id to document text
+
+    Returns:
+        Path to the index file on disk
+    """
+    return retriever.index(corpus)
+
+
+@func(output="hits", map_axis="query", key_attr="query_uuid", cache=False)
+def retrieve(
+    retriever: Retriever, query: Query, top_k: int, index_path: str
+) -> RetrievalResult:
     """Retrieve documents for a query.
 
     Args:
         retriever: The retriever implementation
         query: The search query (map axis - one per item)
         top_k: Number of results to retrieve (constant)
+        index_path: Path to the index file
 
     Returns:
         Retrieval results
     """
-    return retriever.retrieve(query, top_k=top_k)
+    return retriever.retrieve(index_path, query, top_k=top_k)
 
 
 @func(output="reranked_hits", map_axis="query", key_attr="query_uuid")

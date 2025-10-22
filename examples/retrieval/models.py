@@ -37,10 +37,22 @@ class RerankedHit(BaseModel):
 class Retriever(Protocol):
     """Protocol for retrieval implementations."""
 
-    def retrieve(self, query: Query, top_k: int) -> RetrievalResult:
+    def index(self, corpus: dict[str, str]) -> str:
+        """Index a corpus and return the path to the index file.
+
+        Args:
+            corpus: Dictionary mapping doc_id to document text
+
+        Returns:
+            Path to the index file on disk
+        """
+        ...
+
+    def retrieve(self, index_path: str, query: Query, top_k: int) -> RetrievalResult:
         """Retrieve documents for a query.
 
         Args:
+            index_path: Path to the index file
             query: The search query
             top_k: Number of results to return
 

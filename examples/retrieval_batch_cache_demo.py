@@ -14,21 +14,21 @@ from examples.retrieval import (
 )
 
 
-@func(output="index", cache=True)
-def index(retriever: Retriever, corpus: Dict[str, str]) -> bool:
+@func(output="index_path", cache=True)
+def index(retriever: Retriever, corpus: Dict[str, str]) -> str:
     """Index the corpus."""
     print("  [Indexing corpus]")
-    retriever.index(corpus)
-    return True
+    index_path = retriever.index(corpus)
+    return index_path
 
 
 @func(output="hits", map_axis="query", key_attr="query_uuid", cache=True)
 def retrieve(
-    retriever: Retriever, query: Query, top_k: int, index: bool
+    retriever: Retriever, query: Query, top_k: int, index_path: str
 ) -> RetrievalResult:
     """Retrieve documents."""
     print(f"  [Retrieving for '{query.text}' (id={query.query_uuid})]")
-    return retriever.retrieve(query, top_k=top_k)
+    return retriever.retrieve(index_path, query, top_k=top_k)
 
 
 @func(output="reranked_hits", map_axis="query", key_attr="query_uuid", cache=True)

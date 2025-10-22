@@ -9,6 +9,7 @@ try:
         IdentityReranker,
         Query,
         ToyRetriever,
+        index,
         rerank,
         retrieve,
     )
@@ -22,6 +23,7 @@ except ImportError:
         IdentityReranker,
         Query,
         ToyRetriever,
+        index,
         rerank,
         retrieve,
     )
@@ -36,11 +38,11 @@ def main():
         "d2": "brown dog sleeps",
         "d3": "five boxing wizards jump quickly",
     }
-    retriever = ToyRetriever(corpus)
+    retriever = ToyRetriever()
     reranker = IdentityReranker()
 
-    # Create pipeline with explicit functions
-    pipeline = Pipeline(functions=[retrieve, rerank])
+    # Create pipeline with explicit functions including index
+    pipeline = Pipeline(functions=[index, retrieve, rerank])
 
     # Create runner with auto mode (chooses based on batch size)
     runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=2)
@@ -52,6 +54,7 @@ def main():
     # Example 1: Single query
     print("\n📝 Example 1: Single Query\n")
     single_inputs = {
+        "corpus": corpus,
         "retriever": retriever,
         "reranker": reranker,
         "query": Query(query_uuid="q1", text="quick brown"),
@@ -67,6 +70,7 @@ def main():
     # Example 2: Multiple queries (batch processing)
     print("\n📝 Example 2: Multiple Queries (Batch Processing)\n")
     multi_inputs = {
+        "corpus": corpus,
         "retriever": retriever,
         "reranker": reranker,
         "query": [

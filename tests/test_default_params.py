@@ -14,17 +14,17 @@ from examples.retrieval import (
 )
 
 
-@func(output="index")
-def index(retriever: Retriever, corpus: Dict[str, str], test: bool = True) -> bool:
-    retriever.index(corpus)
-    return True
+@func(output="index_path")
+def index(retriever: Retriever, corpus: Dict[str, str], test: bool = True) -> str:
+    index_path = retriever.index(corpus)
+    return index_path
 
 
 @func(output="hits")
 def retrieve(
-    retriever: Retriever, query: Query, top_k: int, index: bool
+    retriever: Retriever, query: Query, top_k: int, index_path: str
 ) -> RetrievalResult:
-    return retriever.retrieve(query, top_k=top_k)
+    return retriever.retrieve(index_path, query, top_k=top_k)
 
 
 @func(output="reranked_hits")
