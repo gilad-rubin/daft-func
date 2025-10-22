@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 @pytest.fixture
@@ -24,7 +24,9 @@ def test_cache_logging_enabled_by_default(temp_cache_dir, capsys):
         return x * 2
 
     pipeline = Pipeline(functions=[compute])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir, verbose=True)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir), verbose=True
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run - cache miss
@@ -48,7 +50,9 @@ def test_cache_logging_disabled(temp_cache_dir, capsys):
         return x * 2
 
     pipeline = Pipeline(functions=[compute])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir, verbose=False)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir), verbose=False
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # Run - should not print cache info
@@ -68,7 +72,9 @@ def test_cache_logging_shows_execution_time(temp_cache_dir, capsys):
         return x * 2
 
     pipeline = Pipeline(functions=[slow_compute])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run - should show execution time
@@ -96,7 +102,9 @@ def test_cache_logging_multiple_nodes(temp_cache_dir, capsys):
         return step2 * 3
 
     pipeline = Pipeline(functions=[compute1, compute2, compute3])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run - all miss or no-cache
@@ -128,7 +136,9 @@ def test_cache_logging_smart_invalidation(temp_cache_dir, capsys):
         return foo * c
 
     pipeline = Pipeline(functions=[foo, bar])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -159,7 +169,9 @@ def test_cache_logging_format(temp_cache_dir, capsys):
         return b
 
     pipeline = Pipeline(functions=[step_a, step_b, step_c])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     runner.run(inputs={"x": 1})

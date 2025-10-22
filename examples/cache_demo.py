@@ -2,7 +2,7 @@
 
 import time
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 # Simulate expensive operations
@@ -66,7 +66,7 @@ def main():
     # Demo 2: With caching
     print("\n📝 Demo 2: With Caching Enabled")
     print("-" * 70)
-    cache_config = CacheConfig(enabled=True, cache_dir=".cache/demo")
+    cache_config = CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache/demo"))
     runner_cache = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     print("\nRun 1 (cold cache):")
@@ -123,4 +123,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

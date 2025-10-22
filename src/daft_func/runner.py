@@ -17,7 +17,6 @@ from daft_func.cache import (
     CacheConfig,
     CacheStats,
     compute_signature,
-    create_stores,
     get_item_cache_key,
     make_cache_key,
     signatures_match,
@@ -58,12 +57,8 @@ class Runner:
         self.batch_threshold = batch_threshold
         self.cache_config = cache_config or CacheConfig()
 
-        # Initialize cache stores if enabled
-        if self.cache_config.enabled:
-            self.meta_store, self.blob_store = create_stores(self.cache_config)
-        else:
-            self.meta_store = None
-            self.blob_store = None
+        # Get cache backend (always available, even if caching disabled)
+        self.cache_backend = self.cache_config.backend
 
         # Track signatures for current run
         self._current_signatures: Dict[str, str] = {}
@@ -144,8 +139,7 @@ class Runner:
             use_cache = (
                 self.cache_config.enabled
                 and node.meta.cache
-                and self.meta_store is not None
-                and self.blob_store is not None
+                and self.cache_backend is not None
             )
 
             if use_cache:
@@ -174,14 +168,14 @@ class Runner:
                 )
 
                 # Check for cache hit
-                stored_sig = self.meta_store.get(cache_key)
+                stored_sig = self.cache_backend.get_meta(cache_key)
                 cache_hit = stored_sig is not None and signatures_match(
                     new_sig, stored_sig
                 )
 
                 if cache_hit:
                     # Cache hit - try to load from blob store
-                    cached_value = self.blob_store.get(cache_key)
+                    cached_value = self.cache_backend.get_blob(cache_key)
                     if cached_value is not None:
                         outputs[node.meta.output_name] = cached_value
                         # Store signature for downstream nodes
@@ -205,8 +199,8 @@ class Runner:
                 outputs[node.meta.output_name] = res
 
                 # Save to cache
-                self.blob_store.set(cache_key, res)
-                self.meta_store.set(new_sig)
+                self.cache_backend.set_blob(cache_key, res)
+                self.cache_backend.set_meta(new_sig)
 
                 # Store signature for downstream nodes
                 sig_str = f"{new_sig.code_hash}{new_sig.env_hash}{new_sig.inputs_hash}{new_sig.deps_hash}"

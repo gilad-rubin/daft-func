@@ -5,7 +5,7 @@ import tempfile
 import pytest
 from pydantic import BaseModel
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 class Item(BaseModel):
@@ -35,7 +35,9 @@ def test_cache_with_batch_mode(temp_cache_dir, capsys):
         return Result(id=item.id, doubled=item.value * multiplier)
 
     pipeline = Pipeline(functions=[process])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     items = [
@@ -76,7 +78,9 @@ def test_cache_with_daft_mode(temp_cache_dir, capsys):
         return Result(id=item.id, doubled=item.value * multiplier)
 
     pipeline = Pipeline(functions=[process])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="daft", cache_config=cache_config)
 
     items = [

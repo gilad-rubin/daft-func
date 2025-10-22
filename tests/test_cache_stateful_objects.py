@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 class StatefulObject:
@@ -44,7 +44,9 @@ def test_stateful_object_causes_cache_miss(temp_cache_dir):
         return obj.process(data)
 
     pipeline = Pipeline(functions=[init_obj, use_obj])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir, verbose=True)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir), verbose=True
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run

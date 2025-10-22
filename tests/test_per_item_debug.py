@@ -4,7 +4,7 @@ import tempfile
 
 from pydantic import BaseModel
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 class Item(BaseModel):
@@ -30,7 +30,7 @@ def test_per_item_caching_debug():
     pipeline = Pipeline(functions=[process])
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        cache_config = CacheConfig(enabled=True, cache_dir=tmpdir)
+        cache_config = CacheConfig(enabled=True, backend=DiskCache(cache_dir=tmpdir))
         runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
         items = [

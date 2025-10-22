@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 class ModelWithCacheKey:
@@ -45,7 +45,9 @@ def test_cache_key_protocol(temp_cache_dir):
         return f"{loaded}:{text}"
 
     pipeline = Pipeline(functions=[use_model])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -81,7 +83,9 @@ def test_cache_key_with_state_changes(temp_cache_dir):
         return f"{model._loaded_model}:{text}"
 
     pipeline = Pipeline(functions=[load_model, use_model])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run - model gets loaded, _loaded_model is set

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 
 
 # Define Pydantic models at module level for pickling
@@ -39,18 +39,18 @@ def test_cache_disabled_by_default(temp_cache_dir):
     # Without cache_config
     runner1 = Runner(pipeline=pipeline, mode="local")
     assert not runner1.cache_config.enabled
-    assert runner1.meta_store is None
-    assert runner1.blob_store is None
+    assert runner1.cache_backend is not None  # Backend exists but caching is disabled
 
     # With cache_config but enabled=False
     runner2 = Runner(
         pipeline=pipeline,
         mode="local",
-        cache_config=CacheConfig(enabled=False, cache_dir=temp_cache_dir),
+        cache_config=CacheConfig(
+            enabled=False, backend=DiskCache(cache_dir=temp_cache_dir)
+        ),
     )
     assert not runner2.cache_config.enabled
-    assert runner2.meta_store is None
-    assert runner2.blob_store is None
+    assert runner2.cache_backend is not None  # Backend exists but caching is disabled
 
 
 def test_downstream_only_change(temp_cache_dir):
@@ -73,7 +73,9 @@ def test_downstream_only_change(temp_cache_dir):
         return foo_out * c
 
     pipeline = Pipeline(functions=[foo, bar])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -110,7 +112,9 @@ def test_full_cache_hit(temp_cache_dir):
         return foo_out * c
 
     pipeline = Pipeline(functions=[foo, bar])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -147,7 +151,9 @@ def test_upstream_change(temp_cache_dir):
         return foo_out * c
 
     pipeline = Pipeline(functions=[foo, bar])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -179,7 +185,9 @@ def test_code_change_invalidates_cache(temp_cache_dir):
         return x * 2
 
     pipeline = Pipeline(functions=[compute])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -220,7 +228,9 @@ def test_custom_cache_key(temp_cache_dir):
         return x * 2
 
     pipeline = Pipeline(functions=[compute])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -266,7 +276,9 @@ def test_mixed_cached_uncached_nodes(temp_cache_dir):
         return cached_result + 1
 
     pipeline = Pipeline(functions=[cached_node, uncached_node])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -295,7 +307,7 @@ def test_cache_backend_diskcache(temp_cache_dir):
 
     pipeline = Pipeline(functions=[compute])
     cache_config = CacheConfig(
-        enabled=True, backend="diskcache", cache_dir=temp_cache_dir
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
@@ -327,7 +339,9 @@ def test_dependency_depth(temp_cache_dir):
     # Test with different dependency depths
     for depth in [1, 2, 3]:
         cache_config = CacheConfig(
-            enabled=True, cache_dir=temp_cache_dir, dependency_depth=depth
+            enabled=True,
+            backend=DiskCache(cache_dir=temp_cache_dir),
+            dependency_depth=depth,
         )
         runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
         assert runner.cache_config.dependency_depth == depth
@@ -343,7 +357,9 @@ def test_cache_with_complex_types(temp_cache_dir):
         return OutputModel(result=inp.value * 2, message=f"Processed {inp.name}")
 
     pipeline = Pipeline(functions=[process])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run
@@ -378,7 +394,9 @@ def test_cache_clears_signatures_between_runs(temp_cache_dir):
         return step1 + 1
 
     pipeline = Pipeline(functions=[compute1, compute2])
-    cache_config = CacheConfig(enabled=True, cache_dir=temp_cache_dir)
+    cache_config = CacheConfig(
+        enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
+    )
     runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
 
     # First run

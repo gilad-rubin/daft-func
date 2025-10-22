@@ -10,24 +10,14 @@ import ast
 import hashlib
 import inspect
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from pydantic import BaseModel
 
-
-@dataclass
-class CacheConfig:
-    """Configuration for caching behavior."""
-
-    enabled: bool = False
-    backend: str = "diskcache"
-    cache_dir: str = ".cache"
-    env_hash: Optional[str] = None  # manual override
-    dependency_depth: int = 2  # levels of imports to track
-    verbose: bool = True  # print cache status after each run
-    per_item_caching: bool = True  # Enable per-item caching for map_axis nodes
+if TYPE_CHECKING:
+    from typing import CacheBackend
 
 
 @dataclass
@@ -283,8 +273,15 @@ def compute_inputs_hash(kwargs: Dict[str, Any]) -> str:
                     except (TypeError, ValueError):
                         # If can't serialize, use string representation
                         state[k] = str(v)
-            # Include class name to distinguish different types
-            return {"__class__": obj.__class__.__name__, "__state__": state}
+
+            # Always include object ID along with state to distinguish instances
+            # This ensures different instances hash differently even with identical state
+            # Critical for stateful objects that rely on side effects (e.g., initialization)
+            return {
+                "__class__": obj.__class__.__name__,
+                "__id__": id(obj),
+                "__state__": state,
+            }
 
         # Fallback: Use object id (stable within same Python session)
         else:
@@ -341,7 +338,32 @@ def compute_signature(
     )
 
 
-class MetaStore(Protocol):
+class CacheBackend(Protocol):
+    """Protocol for cache backends that manage both metadata and blob storage."""
+
+    def get_meta(self, node_name: str) -> Optional[NodeSignature]:
+        """Retrieve signature for a node."""
+        ...
+
+    def set_meta(self, signature: NodeSignature) -> None:
+        """Store signature for a node."""
+        ...
+
+    def get_blob(self, key: str) -> Optional[Any]:
+        """Retrieve cached output."""
+        ...
+
+    def set_blob(self, key: str, value: Any) -> None:
+        """Store output."""
+        ...
+
+    def clear(self) -> None:
+        """Clear all stored data (metadata and blobs)."""
+        ...
+
+
+# Legacy protocols - kept for internal use
+class _MetaStore(Protocol):
     """Protocol for storing/retrieving node signatures."""
 
     def get(self, node_name: str) -> Optional[NodeSignature]:
@@ -357,7 +379,7 @@ class MetaStore(Protocol):
         ...
 
 
-class BlobStore(Protocol):
+class _BlobStore(Protocol):
     """Protocol for storing/retrieving node outputs."""
 
     def get(self, key: str) -> Optional[Any]:
@@ -373,8 +395,8 @@ class BlobStore(Protocol):
         ...
 
 
-class JSONMetaStore:
-    """JSON file-based metadata store."""
+class _JSONMetaStore:
+    """JSON file-based metadata store (internal)."""
 
     def __init__(self, cache_dir: str):
         """Initialize JSON metadata store.
@@ -423,8 +445,8 @@ class JSONMetaStore:
             self.meta_file.unlink()
 
 
-class DiskCacheBlobStore:
-    """Diskcache-based blob store."""
+class _DiskCacheBlobStore:
+    """Diskcache-based blob store (internal)."""
 
     def __init__(self, cache_dir: str):
         """Initialize diskcache blob store.
@@ -450,25 +472,134 @@ class DiskCacheBlobStore:
         self.cache.clear()
 
 
+class MemoryCache:
+    """In-memory cache backend - ephemeral storage for current session."""
+
+    def __init__(self):
+        """Initialize in-memory cache with no configuration needed."""
+        self._meta: Dict[str, NodeSignature] = {}
+        self._blobs: Dict[str, Any] = {}
+
+    def get_meta(self, node_name: str) -> Optional[NodeSignature]:
+        """Retrieve signature for a node."""
+        return self._meta.get(node_name)
+
+    def set_meta(self, signature: NodeSignature) -> None:
+        """Store signature for a node."""
+        self._meta[signature.node_name] = signature
+
+    def get_blob(self, key: str) -> Optional[Any]:
+        """Retrieve cached output."""
+        return self._blobs.get(key)
+
+    def set_blob(self, key: str, value: Any) -> None:
+        """Store output."""
+        self._blobs[key] = value
+
+    def clear(self) -> None:
+        """Clear all stored data."""
+        self._meta.clear()
+        self._blobs.clear()
+
+
+class DiskCache:
+    """Disk-based cache backend with persistent storage."""
+
+    def __init__(self, cache_dir: str = ".cache"):
+        """Initialize disk cache with specified directory.
+
+        Args:
+            cache_dir: Directory for cache storage (default: .cache)
+        """
+        self.cache_dir = cache_dir
+        self._meta_store = _JSONMetaStore(cache_dir)
+        self._blob_store = _DiskCacheBlobStore(cache_dir)
+
+    def get_meta(self, node_name: str) -> Optional[NodeSignature]:
+        """Retrieve signature for a node."""
+        return self._meta_store.get(node_name)
+
+    def set_meta(self, signature: NodeSignature) -> None:
+        """Store signature for a node."""
+        self._meta_store.set(signature)
+
+    def get_blob(self, key: str) -> Optional[Any]:
+        """Retrieve cached output."""
+        return self._blob_store.get(key)
+
+    def set_blob(self, key: str, value: Any) -> None:
+        """Store output."""
+        self._blob_store.set(key, value)
+
+    def clear(self) -> None:
+        """Clear all stored data."""
+        self._meta_store.clear()
+        self._blob_store.clear()
+
+
+@dataclass
+class CacheConfig:
+    """Configuration for caching behavior with backend support."""
+
+    enabled: bool = False
+    backend: CacheBackend = field(default_factory=MemoryCache)
+    env_hash: Optional[str] = None  # manual override
+    dependency_depth: int = 2  # levels of imports to track
+    verbose: bool = True  # print cache status after each run
+    per_item_caching: bool = True  # Enable per-item caching for map_axis nodes
+
+
+# Legacy factory function - deprecated, use backend classes directly
 def create_stores(
     config: CacheConfig,
-) -> tuple[MetaStore, BlobStore]:
-    """Factory function to create metadata and blob stores.
+) -> tuple[_MetaStore, _BlobStore]:
+    """Factory function to create metadata and blob stores (deprecated).
 
     Args:
         config: Cache configuration
 
     Returns:
-        Tuple of (MetaStore, BlobStore)
+        Tuple of (_MetaStore, _BlobStore)
+
+    Deprecated:
+        Use CacheConfig with backend parameter instead.
     """
-    meta_store = JSONMetaStore(config.cache_dir)
+    # For backward compatibility, extract backend from config
+    if hasattr(config, "backend") and isinstance(config.backend, CacheBackend):
+        # New-style config with CacheBackend
+        backend = config.backend
 
-    if config.backend == "diskcache":
-        blob_store = DiskCacheBlobStore(config.cache_dir)
+        # Wrap in legacy interface
+        class _BackendWrapper:
+            def __init__(self, b):
+                self.backend = b
+
+            def get(self, key):
+                return (
+                    self.backend.get_meta(key)
+                    if hasattr(self, "_is_meta")
+                    else self.backend.get_blob(key)
+                )
+
+            def set(self, key_or_sig, value=None):
+                if value is None:  # It's a signature
+                    self.backend.set_meta(key_or_sig)
+                else:
+                    self.backend.set_blob(key_or_sig, value)
+
+            def clear(self):
+                self.backend.clear()
+
+        meta = _BackendWrapper(backend)
+        meta._is_meta = True
+        blob = _BackendWrapper(backend)
+        return meta, blob
     else:
-        raise ValueError(f"Unknown cache backend: {config.backend}")
-
-    return meta_store, blob_store
+        # Old-style config with string backend
+        cache_dir = getattr(config, "cache_dir", ".cache")
+        meta_store = _JSONMetaStore(cache_dir)
+        blob_store = _DiskCacheBlobStore(cache_dir)
+        return meta_store, blob_store
 
 
 def signatures_match(sig1: NodeSignature, sig2: NodeSignature) -> bool:

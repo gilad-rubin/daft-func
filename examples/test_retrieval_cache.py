@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 
-from daft_func import CacheConfig, Pipeline, Runner, func
+from daft_func import CacheConfig, DiskCache, Pipeline, Runner, func
 from examples.retrieval import (
     IdentityReranker,
     Query,
@@ -64,7 +64,7 @@ def main():
         pipeline=pipeline,
         mode="auto",
         batch_threshold=2,
-        cache_config=CacheConfig(enabled=True, cache_dir=".cache"),
+        cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
     )
 
     print("=" * 70)
