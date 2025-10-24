@@ -4,6 +4,7 @@
 - when making changes in the codebase - run them to verify everything works
 - if an API key is needed, first check in the .env to make sure it exists. use dotenv to load if needed.
 - prefer to search online and in documentations before acting
+- tests go to tests folder. scripts go to scripts folder
 
 ## Tools
 - use tavily web search and context7 MCP servers whenever you're stuck or want to understand how a library works

@@ -1,5 +1,6 @@
 """Runner for executing DAG workflows with adaptive batching."""
 
+import time
 from typing import (
     Any,
     Callable,
@@ -22,6 +23,7 @@ from daft_func.cache import (
     signatures_match,
 )
 from daft_func.pipeline import Pipeline
+from daft_func.progress import ProgressConfig, create_progress_bar
 from daft_func.types import DAFT_AVAILABLE, daft_datatype
 
 if DAFT_AVAILABLE:
@@ -43,6 +45,7 @@ class Runner:
         mode: str = "auto",
         batch_threshold: int = 2,
         cache_config: Optional[CacheConfig] = None,
+        progress_config: Optional[ProgressConfig] = None,
     ):
         """Initialize runner with pipeline, execution mode and batch threshold.
 
@@ -51,11 +54,13 @@ class Runner:
             mode: Execution mode ("local", "daft", or "auto")
             batch_threshold: Minimum number of items to trigger Daft batching in auto mode
             cache_config: Optional caching configuration
+            progress_config: Optional progress bar configuration
         """
         self.pipeline = pipeline
         self.mode = mode
         self.batch_threshold = batch_threshold
         self.cache_config = cache_config or CacheConfig()
+        self.progress_config = progress_config or ProgressConfig()
 
         # Get cache backend (always available, even if caching disabled)
         self.cache_backend = self.cache_config.backend
@@ -65,6 +70,9 @@ class Runner:
 
         # Track cache statistics
         self._cache_stats: Optional[CacheStats] = None
+
+        # Progress bar (created per run)
+        self._progress_bar = None
 
     def run(self, *, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the DAG given initial inputs.
@@ -93,8 +101,10 @@ class Runner:
         map_axis = next(iter(map_axes)) if map_axes else None
 
         batching_requested = False
+        items_count = 1
         if map_axis and map_axis in inputs and isinstance(inputs[map_axis], list):
             batching_requested = True
+            items_count = len(inputs[map_axis])
 
         # Determine batching strategy
         if self.mode == "local":
@@ -103,20 +113,39 @@ class Runner:
             batching = True
         else:  # auto mode
             batching = (
-                batching_requested and len(inputs[map_axis]) >= self.batch_threshold
+                batching_requested and items_count >= self.batch_threshold
                 if map_axis
                 else False
             )
 
-        # Execute based on strategy
-        if batching:
-            result = self._run_batch(inputs, map_axis)
-        elif batching_requested:
-            # We have list inputs but using local/single execution - loop manually
-            result = self._run_local_loop(inputs, map_axis)
-        else:
-            # True single item execution
-            result = self._run_single(inputs)
+        # Initialize progress bar with all nodes
+        # Get topological order to show nodes in execution order
+        try:
+            order = pipeline.topo(inputs)
+            node_names = [node.meta.output_name for node in order]
+
+            # Create and initialize progress bar
+            self._progress_bar = create_progress_bar(self.progress_config)
+            if self._progress_bar:
+                self._progress_bar.initialize_nodes(node_names, items_count)
+        except Exception:
+            # If topo fails, we'll let the actual execution handle the error
+            pass
+
+        try:
+            # Execute based on strategy
+            if batching:
+                result = self._run_batch(inputs, map_axis)
+            elif batching_requested:
+                # We have list inputs but using local/single execution - loop manually
+                result = self._run_local_loop(inputs, map_axis)
+            else:
+                # True single item execution
+                result = self._run_single(inputs)
+        finally:
+            # Stop progress bar
+            if self._progress_bar:
+                self._progress_bar.stop()
 
         # Print cache summary if enabled
         if self._cache_stats:
@@ -126,8 +155,6 @@ class Runner:
 
     def _run_single(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute DAG for a single item using pure Python."""
-        import time
-
         pipeline = self.pipeline
         outputs = dict(inputs)
         order = pipeline.topo(inputs)
@@ -141,6 +168,12 @@ class Runner:
                 and node.meta.cache
                 and self.cache_backend is not None
             )
+
+            # Start progress tracking for this node
+            if self._progress_bar:
+                self._progress_bar.start_node(node.meta.output_name)
+
+            cached_result = False
 
             if use_cache:
                 # Determine if this is a map_axis node and get item key
@@ -191,6 +224,18 @@ class Runner:
                                 cache_hit=True,
                                 loaded=True,
                             )
+
+                        # Mark as cached for progress bar
+                        cached_result = True
+                        execution_time = 0.0
+
+                        # Complete progress for this node
+                        if self._progress_bar:
+                            self._progress_bar.complete_node(
+                                node.meta.output_name,
+                                execution_time=execution_time,
+                                cached=True,
+                            )
                         continue
 
                 # Cache miss or failed to load - execute node
@@ -233,6 +278,14 @@ class Runner:
                         execution_time=execution_time,
                     )
 
+            # Complete progress for this node (if not already done for cache hit)
+            if self._progress_bar and not cached_result:
+                self._progress_bar.complete_node(
+                    node.meta.output_name,
+                    execution_time=execution_time,
+                    cached=False,
+                )
+
         return outputs
 
     def _run_local_loop(
@@ -245,16 +298,66 @@ class Runner:
         constants = {k: v for k, v in inputs.items() if k != map_axis}
         aggregated: List[Dict[str, Any]] = []
 
-        for it in items:
+        # Track total execution time per node
+        node_times: Dict[str, float] = {}
+        node_cache_hits: Dict[str, int] = {}
+
+        # Get node order
+        pipeline = self.pipeline
+        order = pipeline.topo({**constants, map_axis: items[0]})
+
+        for item_idx, it in enumerate(items):
             # Reset signatures for each item
             self._current_signatures = {}
             per_inputs = {**constants, map_axis: it}
+
+            # Temporarily disable progress bar for inner _run_single
+            # We'll handle progress updates manually here
+            saved_progress = self._progress_bar
+            self._progress_bar = None
+
+            item_start_time = time.time()
             per_out = self._run_single(per_inputs)
             aggregated.append(per_out)
 
+            # Restore progress bar
+            self._progress_bar = saved_progress
+
+            # Update progress for each node after processing this item
+            if self._progress_bar:
+                for node_idx, node in enumerate(order):
+                    node_name = node.meta.output_name
+
+                    # On first item, mark node as executing
+                    if item_idx == 0:
+                        self._progress_bar.start_node(node_name)
+
+                    # Update progress (this shows the item count progressing)
+                    self._progress_bar.update_node_progress(
+                        node_name,
+                        completed=item_idx + 1,
+                        total=len(items),
+                    )
+
+                    # On last item, complete the node
+                    if item_idx == len(items) - 1:
+                        # Estimate average time per node (rough approximation)
+                        avg_time = (
+                            (time.time() - item_start_time) / len(order) if order else 0
+                        )
+                        node_times[node_name] = node_times.get(node_name, 0) + avg_time
+
+                        # Check if any cache hits occurred
+                        has_cache_hits = node_cache_hits.get(node_name, 0) > 0
+
+                        # Complete the node
+                        self._progress_bar.complete_node(
+                            node_name,
+                            execution_time=node_times[node_name],
+                            cached=has_cache_hits,
+                        )
+
         # Merge structure: final outputs to lists
-        pipeline = self.pipeline
-        order = pipeline.topo({**constants, map_axis: items[0]})
         final_output_name = order[-1].meta.output_name if order else None
 
         merged: Dict[str, Any] = dict(constants)

@@ -1,223 +1,253 @@
 """
-Simple Progress Bar Demo
+Progress Bar Demo - Multi-Row Display
 
-This script demonstrates a progress bar that works both in Jupyter and CLI.
+This script demonstrates the new multi-row progress bar that shows all nodes
+simultaneously with individual progress tracking.
+
 Run with: uv run examples/progress_bar_demo.py
 """
 
 import time
-from typing import Any, Dict, List
-
-# Import Rich for both environments
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TaskProgressColumn,
-    TextColumn,
-    TimeRemainingColumn,
-)
+from typing import List
 
 from daft_func import Pipeline, Runner, func
-
-# Check if we're in Jupyter
-try:
-    get_ipython()
-    IN_JUPYTER = True
-except NameError:
-    IN_JUPYTER = False
-
+from daft_func.progress import ProgressConfig
 
 # ============================================================================
-# Progress Bar - Rich-based (works in both Jupyter and CLI!)
+# Test Pipeline with Varying Execution Times
 # ============================================================================
 
-class RichProgressBar:
-    """Rich-based progress bar that works in both Jupyter and CLI."""
-    
-    def __init__(self):
-        self.total_nodes = 0
-        self.completed_nodes = 0
-        self.current_node = ''
-        self.task_id = None
-        
-        # Create Rich progress bar with beautiful styling
-        self.progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(complete_style="green", finished_style="bright_green"),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeRemainingColumn(),
-            TextColumn("[dim]{task.fields[current_node]}"),
-        )
-    
-    def set_total(self, total: int):
-        self.total_nodes = total
-        self.progress.start()
-        self.task_id = self.progress.add_task(
-            "Pipeline",
-            total=total,
-            current_node=""
-        )
-    
-    def reset(self):
-        if self.task_id is not None:
-            self.progress.reset(self.task_id)
-        self.completed_nodes = 0
-        self.current_node = ''
-    
-    def start_node(self, node_name: str):
-        self.current_node = node_name
-        if self.task_id is not None:
-            self.progress.update(
-                self.task_id,
-                current_node=f"Running: [yellow]{node_name}[/]"
-            )
-    
-    def complete_node(self):
-        self.completed_nodes += 1
-        self.current_node = ''
-        if self.task_id is not None:
-            self.progress.update(
-                self.task_id,
-                advance=1,
-                current_node="[green]✓ Completed[/]" if self.completed_nodes == self.total_nodes else ""
-            )
-            
-            # Stop progress when done
-            if self.completed_nodes == self.total_nodes:
-                self.progress.stop()
-
-
-def create_progress_bar():
-    """Create Rich progress bar for both environments."""
-    return RichProgressBar()
-
-
-# ============================================================================
-# Progress-Aware Runner
-# ============================================================================
-
-class ProgressRunner(Runner):
-    """Runner that updates a progress bar widget."""
-    
-    def __init__(self, *args, progress_bar=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.progress_bar = progress_bar
-    
-    def _run_single(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute DAG for a single item with progress tracking."""
-        pipeline = self.pipeline
-        outputs = dict(inputs)
-        order = pipeline.topo(inputs)
-
-        for node in order:
-            # Update progress bar - node starting
-            if self.progress_bar:
-                self.progress_bar.start_node(node.meta.output_name)
-            
-            # Get kwargs for this node
-            kwargs = {p: outputs[p] for p in node.params if p in outputs}
-            
-            # Execute node (simplified - no caching for demo)
-            res = node.fn(**kwargs)
-            outputs[node.meta.output_name] = res
-            
-            # Update progress bar - node completed
-            if self.progress_bar:
-                self.progress_bar.complete_node()
-
-        return outputs
-
-
-# ============================================================================
-# Test Pipeline
-# ============================================================================
 
 @func(output="data")
 def load_data(source: str) -> List[int]:
     """Load data from source."""
-    if IN_JUPYTER:
-        print("Loading data...")
-    time.sleep(1)
+    time.sleep(0.8)
     return [1, 2, 3, 4, 5]
 
 
 @func(output="cleaned")
 def clean_data(data: List[int]) -> List[int]:
     """Clean the data."""
-    if IN_JUPYTER:
-        print("Cleaning data...")
-    time.sleep(1.5)
+    time.sleep(1.2)
     return [x for x in data if x > 0]
-
 
 
 @func(output="processed")
 def process_data(cleaned: List[int]) -> List[float]:
     """Process the data."""
-    if IN_JUPYTER:
-        print("Processing data...")
-    time.sleep(1.2)
+    time.sleep(0.9)
     return [float(x) * 2.0 for x in cleaned]
 
 
 @func(output="features")
 def extract_features(processed: List[float]) -> List[float]:
     """Extract features."""
-    if IN_JUPYTER:
-        print("Extracting features...")
-    time.sleep(1)
+    time.sleep(1.0)
     return [x / max(processed) for x in processed]
 
 
 @func(output="result")
 def compute_result(features: List[float]) -> float:
     """Compute final result."""
-    if IN_JUPYTER:
-        print("Computing result...")
-    time.sleep(0.8)
+    time.sleep(0.7)
     return sum(features) / len(features)
 
 
-
 # ============================================================================
-# Main Demo
+# Demo Functions
 # ============================================================================
 
-def main():
-    """Run the demo."""
-    if IN_JUPYTER:
-        print("Creating pipeline...")
-    
+
+def demo_single_item():
+    """Demo: Single item run - each node goes 0→100% quickly."""
+    print("=" * 70)
+    print("DEMO 1: Single Item Run")
+    print("=" * 70)
+    print()
+    print("All nodes visible from the start.")
+    print("Each node transitions 0→100% when executed.")
+    print()
+
     pipeline = Pipeline(
-        functions=[load_data, clean_data, process_data, extract_features, compute_result]
+        functions=[
+            load_data,
+            clean_data,
+            process_data,
+            extract_features,
+            compute_result,
+        ]
     )
-    
-    if IN_JUPYTER:
-        print(f"Pipeline has {len(pipeline.nodes)} nodes\n")
-    
-    # Create progress bar
-    progress_bar = create_progress_bar()
-    progress_bar.set_total(len(pipeline.nodes))
-    
-    # Display widget in Jupyter
-    if IN_JUPYTER:
-        from IPython.display import display
-        print("Running pipeline...\n")
-        display(progress_bar)
-    
-    # Create runner with progress tracking
-    runner = ProgressRunner(pipeline=pipeline, mode="sequential", progress_bar=progress_bar)
-    
+
+    # Create runner with progress enabled (default)
+    runner = Runner(pipeline=pipeline, mode="local")
+
     # Run pipeline
     inputs = {"source": "test_data"}
     result = runner.run(inputs=inputs)
-    
-    print(f"\nFinal result: {result['result']:.3f}")
-    if IN_JUPYTER:
-        print("Done!")
+
+    print()
+    print(f"✓ Final result: {result['result']:.3f}")
+    print()
+
+
+def demo_multi_item():
+    """Demo: Multi-item run - nodes show progressive completion (3/10, 7/10, etc.)."""
+    from pydantic import BaseModel
+
+    class Query(BaseModel):
+        text: str
+        id: int
+
+    @func(output="processed_queries", map_axis="queries")
+    def process_queries(queries: Query) -> str:
+        """Process each query."""
+        time.sleep(0.3)
+        return f"Processed: {queries.text}"
+
+    @func(output="results", map_axis="queries")
+    def analyze_queries(processed_queries: str, queries: Query) -> dict:
+        """Analyze processed queries."""
+        time.sleep(0.4)
+        return {
+            "query_id": queries.id,
+            "result": processed_queries,
+            "score": len(queries.text),
+        }
+
+    print("=" * 70)
+    print("DEMO 2: Multi-Item Run")
+    print("=" * 70)
+    print()
+    print("Processing 5 items through pipeline.")
+    print("Each node shows: '3/5 items' (60%) as it progresses.")
+    print()
+
+    pipeline = Pipeline(functions=[process_queries, analyze_queries])
+    runner = Runner(pipeline=pipeline, mode="local")
+
+    # Create multiple items
+    queries = [Query(text=f"Query {i}", id=i) for i in range(5)]
+
+    inputs = {"queries": queries}
+    result = runner.run(inputs=inputs)
+
+    print()
+    print(f"✓ Processed {len(result['results'])} items")
+    print()
+
+
+def demo_with_cache():
+    """Demo: Run with caching - cached nodes show ⚡ icon."""
+    import tempfile
+
+    from daft_func import CacheConfig, DiskCache
+
+    @func(output="expensive_data", cache=True)
+    def expensive_computation(x: int) -> int:
+        """Expensive computation that benefits from caching."""
+        time.sleep(1.5)
+        return x * x
+
+    @func(output="cheap_result")
+    def cheap_computation(expensive_data: int) -> int:
+        """Quick computation."""
+        time.sleep(0.2)
+        return expensive_data + 1
+
+    print("=" * 70)
+    print("DEMO 3: Caching with Progress")
+    print("=" * 70)
+    print()
+    print("First run: Both nodes execute normally")
+    print("Second run: Cached node shows ⚡ (lightning bolt)")
+    print()
+
+    pipeline = Pipeline(functions=[expensive_computation, cheap_computation])
+
+    # Use temporary cache directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cache_backend = DiskCache(cache_dir=tmpdir)
+        cache_config = CacheConfig(enabled=True, backend=cache_backend)
+        runner = Runner(pipeline=pipeline, cache_config=cache_config)
+
+        # First run
+        print("--- First Run ---")
+        inputs = {"x": 10}
+        result1 = runner.run(inputs=inputs)
+        print(f"Result: {result1['cheap_result']}")
+        print()
+
+        # Second run (should hit cache)
+        print("--- Second Run (with cache) ---")
+        result2 = runner.run(inputs=inputs)
+        print(f"Result: {result2['cheap_result']}")
+        print()
+
+
+def demo_theme_selection():
+    """Demo: Explicit theme selection."""
+    print("=" * 70)
+    print("DEMO 4: Explicit Theme Selection")
+    print("=" * 70)
+    print()
+
+    # Create simple pipeline
+    @func(output="step1")
+    def step1(x: int) -> int:
+        time.sleep(0.5)
+        return x * 2
+
+    @func(output="step2")
+    def step2(step1: int) -> int:
+        time.sleep(0.5)
+        return step1 + 10
+
+    pipeline = Pipeline(functions=[step1, step2])
+
+    # Demo with explicit dark theme
+    print("Using DARK theme (bright colors):")
+    progress_config = ProgressConfig(theme="dark")
+    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    result = runner.run(inputs={"x": 5})
+    print(f"Result: {result['step2']}")
+    print()
+
+    # Demo with explicit light theme
+    print("Using LIGHT theme (darker colors):")
+    progress_config = ProgressConfig(theme="light")
+    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    result = runner.run(inputs={"x": 5})
+    print(f"Result: {result['step2']}")
+    print()
+
+
+# ============================================================================
+# Main
+# ============================================================================
+
+
+def main():
+    """Run all demos."""
+    print("\n")
+    print("╔" + "=" * 68 + "╗")
+    print("║" + " " * 15 + "DAFT-FUNC PROGRESS BAR DEMOS" + " " * 25 + "║")
+    print("╚" + "=" * 68 + "╝")
+    print()
+
+    demo_single_item()
+    time.sleep(1)
+
+    demo_multi_item()
+    time.sleep(1)
+
+    demo_with_cache()
+    time.sleep(1)
+
+    demo_theme_selection()
+
+    print("=" * 70)
+    print("All demos completed!")
+    print("=" * 70)
 
 
 if __name__ == "__main__":
