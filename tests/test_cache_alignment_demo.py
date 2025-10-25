@@ -47,11 +47,11 @@ pipeline = Pipeline(functions=[step1, step2, step3, final_result])
 with tempfile.TemporaryDirectory() as tmpdir:
     cache_backend = DiskCache(cache_dir=tmpdir)
     cache_config = CacheConfig(enabled=True, backend=cache_backend)
-    runner = Runner(pipeline=pipeline, cache_config=cache_config)
+    runner = Runner(cache_config=cache_config)
 
     # First run - all execute
     print("--- First Run (all execute) ---")
-    result1 = runner.run(inputs={"x": 10})
+    result1 = runner.run(pipeline, inputs={"x": 10})
     print(f"Result: {result1['final_result']}")
     print()
 
@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     # Second run - cached nodes show ⚡
     print("--- Second Run (step1 and step2 cached with ⚡) ---")
-    result2 = runner.run(inputs={"x": 10})
+    result2 = runner.run(pipeline, inputs={"x": 10})
     print(f"Result: {result2['final_result']}")
     print()
 

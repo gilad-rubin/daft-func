@@ -62,7 +62,6 @@ def main():
 
     # Create runner with caching
     runner = Runner(
-        pipeline=pipeline,
         mode="local",  # Use local mode for demonstration
         cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
     )

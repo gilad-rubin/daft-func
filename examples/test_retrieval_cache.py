@@ -61,7 +61,6 @@ def main():
 
     # Create runner with caching enabled
     runner = Runner(
-        pipeline=pipeline,
         mode="auto",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
@@ -73,18 +72,18 @@ def main():
 
     print("\n📝 Run 1: Cold cache (all functions execute)")
     print("-" * 70)
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print(f"✓ Got {len(result['reranked_hits'])} reranked hits")
 
     print("\n📝 Run 2: Warm cache (all cached)")
     print("-" * 70)
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print(f"✓ Got {len(result['reranked_hits'])} reranked hits")
 
     print("\n📝 Run 3: Change top_k (only rerank re-executes)")
     print("-" * 70)
     single_inputs["top_k"] = 3
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print(f"✓ Got {len(result['reranked_hits'])} reranked hits")
 
     print("\n" + "=" * 70)

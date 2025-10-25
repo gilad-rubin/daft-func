@@ -215,9 +215,9 @@ def test_runner_with_progress():
 
     # Create runner with progress enabled
     progress_config = ProgressConfig(enabled=True)
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    runner = Runner(progress_config=progress_config)
 
-    result = runner.run(inputs={"x": 5})
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
 
@@ -233,9 +233,9 @@ def test_runner_without_progress():
 
     # Create runner with progress disabled
     progress_config = ProgressConfig(enabled=False)
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    runner = Runner(progress_config=progress_config)
 
-    result = runner.run(inputs={"x": 5})
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
 
@@ -258,9 +258,9 @@ def test_runner_multi_node_progress():
         return step2 * 3
 
     pipeline = Pipeline(functions=[step1, step2, step3])
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
 
-    result = runner.run(inputs={"x": 5})
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["step3"] == 60  # ((5 * 2) + 10) * 3
 
 
@@ -281,14 +281,14 @@ def test_runner_with_cache_progress():
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_backend = DiskCache(cache_dir=tmpdir)
         cache_config = CacheConfig(enabled=True, backend=cache_backend)
-        runner = Runner(pipeline=pipeline, cache_config=cache_config)
+        runner = Runner(cache_config=cache_config)
 
         # First run - should execute
-        result1 = runner.run(inputs={"x": 5})
+        result1 = runner.run(pipeline, inputs={"x": 5})
         assert result1["result"] == 10
 
         # Second run - should hit cache
-        result2 = runner.run(inputs={"x": 5})
+        result2 = runner.run(pipeline, inputs={"x": 5})
         assert result2["result"] == 10
 
 
@@ -305,10 +305,10 @@ def test_runner_multi_item_progress():
         return items.value * 2
 
     pipeline = Pipeline(functions=[process_item])
-    runner = Runner(pipeline=pipeline, mode="local")
+    runner = Runner(mode="local")
 
     items = [Item(value=i) for i in range(3)]
-    result = runner.run(inputs={"items": items})
+    result = runner.run(pipeline, inputs={"items": items})
 
     assert len(result["processed"]) == 3
     assert result["processed"] == [0, 2, 4]
@@ -325,14 +325,14 @@ def test_progress_bar_theme_selection():
 
     # Test dark theme
     progress_config = ProgressConfig(theme="dark")
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
     # Test light theme
     progress_config = ProgressConfig(theme="light")
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
 
@@ -347,14 +347,14 @@ def test_progress_bar_customization():
 
     # Test without cache indicators
     progress_config = ProgressConfig(show_cache_indicators=False)
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
     # Test without timing
     progress_config = ProgressConfig(show_timing=False)
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
     # Test minimal
@@ -362,8 +362,8 @@ def test_progress_bar_customization():
         show_cache_indicators=False,
         show_timing=False,
     )
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     assert result["result"] == 10
 
 
@@ -380,10 +380,10 @@ def test_progress_bar_with_pipeline_error():
         raise ValueError("Test error")
 
     pipeline = Pipeline(functions=[failing_func])
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
 
     with pytest.raises(ValueError, match="Test error"):
-        runner.run(inputs={"x": 5})
+        runner.run(pipeline, inputs={"x": 5})
 
 
 def test_progress_bar_stops_on_error():
@@ -398,10 +398,10 @@ def test_progress_bar_stops_on_error():
         raise ValueError("Error in step2")
 
     pipeline = Pipeline(functions=[step1, step2])
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
 
     with pytest.raises(ValueError, match="Error in step2"):
-        runner.run(inputs={"x": 5})
+        runner.run(pipeline, inputs={"x": 5})
 
     # Progress bar should be stopped (in finally block)
     assert runner._progress_bar is not None  # Was created

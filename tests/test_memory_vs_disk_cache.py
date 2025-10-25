@@ -46,7 +46,6 @@ def test_memory_cache():
     }
 
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=MemoryCache()),
@@ -65,7 +64,7 @@ def test_memory_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print("   Expected: MISS MISS MISS")
 
     # Run 2: Another new retriever instance (same config)
@@ -77,7 +76,7 @@ def test_memory_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print("   Expected: HIT HIT HIT")
 
     # Run 3: Yet another new retriever instance (same config)
@@ -89,7 +88,7 @@ def test_memory_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print("   Expected: HIT HIT HIT")
     print("   PROBLEM: Getting MISS instead!")
 
@@ -105,7 +104,6 @@ def test_disk_cache():
     }
 
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
@@ -124,7 +122,7 @@ def test_disk_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print("   Expected: MISS MISS MISS")
 
     # Run 2: Another new retriever instance (same config)
@@ -136,7 +134,7 @@ def test_disk_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print("   Expected: HIT HIT HIT")
 
     # Run 3: Yet another new retriever instance (same config)
@@ -148,7 +146,7 @@ def test_disk_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print("   Expected: HIT HIT HIT")
     print("   SUCCESS: All hits!")
 

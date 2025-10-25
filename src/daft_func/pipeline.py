@@ -127,6 +127,37 @@ class Pipeline:
         self.nodes.clear()
         self.by_output.clear()
 
+    def run(
+        self,
+        *,
+        inputs: Dict[str, Any],
+        mode: str = "auto",
+        batch_threshold: int = 2,
+        cache_config: Optional[Any] = None,
+        progress_config: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Run the pipeline with a default runner.
+
+        Args:
+            inputs: Dictionary of input values including the map_axis (if applicable)
+            mode: Execution mode ("local", "daft", or "auto")
+            batch_threshold: Minimum number of items to trigger Daft batching in auto mode
+            cache_config: Optional caching configuration
+            progress_config: Optional progress bar configuration
+
+        Returns:
+            Dictionary containing all outputs including final results
+        """
+        from daft_func.runner import Runner
+
+        runner = Runner(
+            mode=mode,
+            batch_threshold=batch_threshold,
+            cache_config=cache_config,
+            progress_config=progress_config,
+        )
+        return runner.run(self, inputs=inputs)
+
     def visualize(self, **kwargs):
         """Visualize the pipeline as a directed graph.
 

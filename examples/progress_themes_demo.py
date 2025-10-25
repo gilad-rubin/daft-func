@@ -91,10 +91,10 @@ def demo_auto_theme():
     pipeline = Pipeline(functions=[step1, step2, step3, final_step])
 
     # Auto-detect theme (default)
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
 
     inputs = {"x": 5}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print(f"✓ Result: {result['final']:.2f}")
@@ -114,10 +114,10 @@ def demo_explicit_dark():
 
     # Explicit dark theme
     progress_config = ProgressConfig(theme="dark")
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    runner = Runner(progress_config=progress_config)
 
     inputs = {"x": 7}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print(f"✓ Result: {result['final']:.2f}")
@@ -137,10 +137,10 @@ def demo_explicit_light():
 
     # Explicit light theme
     progress_config = ProgressConfig(theme="light")
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    runner = Runner(progress_config=progress_config)
 
     inputs = {"x": 3}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print(f"✓ Result: {result['final']:.2f}")
@@ -160,10 +160,10 @@ def demo_disable_progress():
 
     # Disable progress
     progress_config = ProgressConfig(enabled=False)
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
+    runner = Runner(progress_config=progress_config)
 
     inputs = {"x": 8}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print(f"✓ Result: {result['final']:.2f}")
@@ -192,8 +192,8 @@ def demo_customize_indicators():
     for desc, config in configs:
         print(f"--- {desc} ---")
         pipeline = Pipeline(functions=[step1, step2])
-        runner = Runner(pipeline=pipeline, progress_config=config)
-        result = runner.run(inputs={"x": 4})
+        runner = Runner(progress_config=config)
+        result = runner.run(pipeline, inputs={"x": 4})
         print()
         time.sleep(0.5)
 

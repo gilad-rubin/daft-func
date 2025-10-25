@@ -80,10 +80,10 @@ def test_batch_with_list_return():
     }
 
     # Create runner in batch mode
-    runner = Runner(pipeline=pipeline, mode="daft")
+    runner = Runner(mode="daft")
 
     # This might fail with the AttributeError
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print("Result:", result)
     print("Type of ranked_hits:", type(result["ranked_hits"]))

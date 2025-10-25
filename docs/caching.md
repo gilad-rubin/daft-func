@@ -154,8 +154,7 @@ def retrieve_and_rerank(
 # Create pipeline
 pipeline = Pipeline(functions=[retrieve_and_rerank])
 runner = Runner(
-    pipeline=pipeline,
-    cache_config=CacheConfig(
+        cache_config=CacheConfig(
         enabled=True,
         backend=DiskCache(cache_dir=".cache"),
         serialization_depth=2,  # Adjust as needed
@@ -163,14 +162,14 @@ runner = Runner(
 )
 
 # First run: cache miss
-result1 = runner.run(inputs={
+result1 = runner.run(pipeline, inputs={
     "retriever": ConfigurableRetriever("bert", {"top_k": 10}),
     "reranker": SimpleReranker(threshold=0.5),
     "query": "test query"
 })
 
 # Second run with NEW instances but SAME config: cache hit!
-result2 = runner.run(inputs={
+result2 = runner.run(pipeline, inputs={
     "retriever": ConfigurableRetriever("bert", {"top_k": 10}),  # New instance
     "reranker": SimpleReranker(threshold=0.5),  # New instance
     "query": "test query"

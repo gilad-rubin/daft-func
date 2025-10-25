@@ -106,10 +106,10 @@ def demo_sequential_execution():
         ]
     )
 
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
 
     inputs = {"source": "demo_data.csv"}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print("✓ Result Summary:")
@@ -167,8 +167,8 @@ def demo_visualization():
         return a + b
 
     pipeline = Pipeline(functions=[node_a, node_b, node_c])
-    runner = Runner(pipeline=pipeline)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner()
+    result = runner.run(pipeline, inputs={"x": 5})
 
     print()
     print(f"✓ Result: {result['c']}")

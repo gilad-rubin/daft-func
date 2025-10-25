@@ -47,19 +47,19 @@ def test_stateful_object_causes_cache_miss(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir), verbose=True
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
     obj = StatefulObject()
     print(f"\nBefore run 1: obj.__dict__ = {obj.__dict__}")
-    result1 = runner.run(inputs={"obj": obj, "data": "hello"})
+    result1 = runner.run(pipeline, inputs={"obj": obj, "data": "hello"})
     print(f"After run 1: obj.__dict__ = {obj.__dict__}")
     assert len(executions) == 1
 
     # Second run with SAME object instance
     # Fixed: Private attributes (_state) are excluded from hash, so cache hits!
     print(f"\nBefore run 2: obj.__dict__ = {obj.__dict__}")
-    result2 = runner.run(inputs={"obj": obj, "data": "hello"})
+    result2 = runner.run(pipeline, inputs={"obj": obj, "data": "hello"})
     print(f"After run 2: obj.__dict__ = {obj.__dict__}")
 
     # Cache should hit because only public attributes (config) are hashed

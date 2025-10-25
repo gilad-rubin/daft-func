@@ -53,8 +53,9 @@ def process(query: Query, threshold: float) -> Result:
 
 # 3. Create pipeline and run
 pipeline = Pipeline(functions=[process])
-runner = Runner(pipeline=pipeline, mode="auto")
-outputs = runner.run(inputs={
+runner = Runner(
+        mode="auto")
+outputs = runner.run(pipeline, inputs={
     "query": [
         Query(id="q1", text="hello"),
         Query(id="q2", text="world"),
@@ -87,15 +88,16 @@ def process(embeddings: list, threshold: float) -> dict:
 # Create pipeline with caching enabled
 pipeline = Pipeline(functions=[encode, process])
 cache_config = CacheConfig(enabled=True, cache_dir=".cache")
-runner = Runner(pipeline=pipeline, cache_config=cache_config)
+runner = Runner(
+        cache_config=cache_config)
 
 # First run: executes both nodes
-result1 = runner.run(inputs={"text": "hello", "model": "bert", "threshold": 0.5})
+result1 = runner.run(pipeline, inputs={"text": "hello", "model": "bert", "threshold": 0.5})
 
 # Second run: change only threshold
 # encode uses cache (text and model unchanged)
 # process re-executes (threshold changed)
-result2 = runner.run(inputs={"text": "hello", "model": "bert", "threshold": 0.8})
+result2 = runner.run(pipeline, inputs={"text": "hello", "model": "bert", "threshold": 0.8})
 ```
 
 See [Caching Usage Guide](docs/caching-usage.md) for more details.
@@ -182,7 +184,8 @@ daft_func supports three execution modes:
 ### Local Mode (Pure Python)
 ```python
 pipeline = Pipeline(functions=[...])
-runner = Runner(pipeline=pipeline, mode="local")
+runner = Runner(
+        mode="local")
 ```
 - No Daft dependency required
 - Simple loop over items
@@ -191,7 +194,8 @@ runner = Runner(pipeline=pipeline, mode="local")
 ### Daft Mode (Vectorized)
 ```python
 pipeline = Pipeline(functions=[...])
-runner = Runner(pipeline=pipeline, mode="daft")
+runner = Runner(
+        mode="daft")
 ```
 - Forces batch execution with Daft DataFrames
 - Vectorized operations
@@ -200,7 +204,8 @@ runner = Runner(pipeline=pipeline, mode="daft")
 ### Auto Mode (Intelligent)
 ```python
 pipeline = Pipeline(functions=[...])
-runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=10)
+runner = Runner(
+        mode="auto", batch_threshold=10)
 ```
 - Automatically chooses based on input size
 - Uses Daft when >= `batch_threshold` items
@@ -252,8 +257,9 @@ runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=10)
    from .nodes import transform
    
    pipeline = Pipeline(functions=[transform])
-   runner = Runner(pipeline=pipeline, mode="auto")
-   result = runner.run(inputs={"input": [...], "config": ...})
+   runner = Runner(
+        mode="auto")
+   result = runner.run(pipeline, inputs={"input": [...], "config": ...})
    ```
 
 ## Requirements

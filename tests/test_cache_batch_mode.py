@@ -38,7 +38,7 @@ def test_cache_with_batch_mode(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     items = [
         Item(id="i1", value=5),
@@ -46,7 +46,7 @@ def test_cache_with_batch_mode(temp_cache_dir, capsys):
     ]
 
     # First run - should execute all
-    result1 = runner.run(inputs={"item": items, "multiplier": 2})
+    result1 = runner.run(pipeline, inputs={"item": items, "multiplier": 2})
     captured = capsys.readouterr()
     print("Run 1 output:", captured.out)
     assert len(executions) == 2
@@ -54,7 +54,7 @@ def test_cache_with_batch_mode(temp_cache_dir, capsys):
     assert "results: ✗ MISS" in captured.out
 
     # Second run with same inputs - should use cache
-    result2 = runner.run(inputs={"item": items, "multiplier": 2})
+    result2 = runner.run(pipeline, inputs={"item": items, "multiplier": 2})
     captured = capsys.readouterr()
     print("Run 2 output:", captured.out)
     # Now works! Per-item caching is enabled
@@ -81,7 +81,7 @@ def test_cache_with_daft_mode(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="daft", cache_config=cache_config)
+    runner = Runner(mode="daft", cache_config=cache_config)
 
     items = [
         Item(id="i1", value=5),
@@ -89,7 +89,7 @@ def test_cache_with_daft_mode(temp_cache_dir, capsys):
     ]
 
     # First run
-    result1 = runner.run(inputs={"item": items, "multiplier": 2})
+    result1 = runner.run(pipeline, inputs={"item": items, "multiplier": 2})
     captured = capsys.readouterr()
     print("Daft Run 1 output:", captured.out)
     # Currently no cache output at all in Daft mode!

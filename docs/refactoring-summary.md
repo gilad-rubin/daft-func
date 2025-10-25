@@ -179,7 +179,7 @@ def process(query: Query, config: Config) -> Result:
 from daft_func import Runner
 
 runner = Runner(mode="auto")
-result = runner.run(inputs={
+result = runner.run(pipeline, inputs={
     "query": [Query(id="q1", text="test"), ...],
     "config": my_config,
 })

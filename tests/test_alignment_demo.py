@@ -60,8 +60,8 @@ pipeline = Pipeline(
     functions=[a, short_name, medium_length_name, very_very_long_node_name, result]
 )
 
-runner = Runner(pipeline=pipeline)
-result = runner.run(inputs={"x": 10})
+runner = Runner()
+result = runner.run(pipeline, inputs={"x": 10})
 
 print()
 print(f"✓ Result: {result['result']}")

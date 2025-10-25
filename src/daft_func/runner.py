@@ -41,22 +41,19 @@ class Runner:
 
     def __init__(
         self,
-        pipeline: Pipeline,
         mode: str = "auto",
         batch_threshold: int = 2,
         cache_config: Optional[CacheConfig] = None,
         progress_config: Optional[ProgressConfig] = None,
     ):
-        """Initialize runner with pipeline, execution mode and batch threshold.
+        """Initialize runner with execution mode and batch threshold.
 
         Args:
-            pipeline: The Pipeline instance containing the DAG nodes
             mode: Execution mode ("local", "daft", or "auto")
             batch_threshold: Minimum number of items to trigger Daft batching in auto mode
             cache_config: Optional caching configuration
             progress_config: Optional progress bar configuration
         """
-        self.pipeline = pipeline
         self.mode = mode
         self.batch_threshold = batch_threshold
         self.cache_config = cache_config or CacheConfig()
@@ -74,10 +71,11 @@ class Runner:
         # Progress bar (created per run)
         self._progress_bar = None
 
-    def run(self, *, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, pipeline: Pipeline, *, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the DAG given initial inputs.
 
         Args:
+            pipeline: The Pipeline instance containing the DAG nodes
             inputs: Dictionary of input values including the map_axis (if applicable)
 
         Returns:
@@ -91,8 +89,6 @@ class Runner:
             self._cache_stats = CacheStats()
         else:
             self._cache_stats = None
-
-        pipeline = self.pipeline
 
         # Determine if we are batching based on any node's map_axis param presence + list input
         map_axes = {n.meta.map_axis for n in pipeline.nodes if n.meta.map_axis}
@@ -135,13 +131,13 @@ class Runner:
         try:
             # Execute based on strategy
             if batching:
-                result = self._run_batch(inputs, map_axis)
+                result = self._run_batch(pipeline, inputs, map_axis)
             elif batching_requested:
                 # We have list inputs but using local/single execution - loop manually
-                result = self._run_local_loop(inputs, map_axis)
+                result = self._run_local_loop(pipeline, inputs, map_axis)
             else:
                 # True single item execution
-                result = self._run_single(inputs)
+                result = self._run_single(pipeline, inputs)
         finally:
             # Stop progress bar
             if self._progress_bar:
@@ -153,9 +149,8 @@ class Runner:
 
         return result
 
-    def _run_single(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _run_single(self, pipeline: Pipeline, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Execute DAG for a single item using pure Python."""
-        pipeline = self.pipeline
         outputs = dict(inputs)
         order = pipeline.topo(inputs)
 
@@ -289,7 +284,7 @@ class Runner:
         return outputs
 
     def _run_local_loop(
-        self, inputs: Dict[str, Any], map_axis: Optional[str]
+        self, pipeline: Pipeline, inputs: Dict[str, Any], map_axis: Optional[str]
     ) -> Dict[str, Any]:
         """Execute DAG for multiple items using Python loop (no Daft)."""
         assert map_axis, "map_axis required for local loop"
@@ -303,7 +298,6 @@ class Runner:
         node_cache_hits: Dict[str, int] = {}
 
         # Get node order
-        pipeline = self.pipeline
         order = pipeline.topo({**constants, map_axis: items[0]})
 
         for item_idx, it in enumerate(items):
@@ -317,7 +311,7 @@ class Runner:
             self._progress_bar = None
 
             item_start_time = time.time()
-            per_out = self._run_single(per_inputs)
+            per_out = self._run_single(pipeline, per_inputs)
             aggregated.append(per_out)
 
             # Restore progress bar
@@ -367,7 +361,7 @@ class Runner:
         return merged
 
     def _run_batch(
-        self, inputs: Dict[str, Any], map_axis: Optional[str]
+        self, pipeline: Pipeline, inputs: Dict[str, Any], map_axis: Optional[str]
     ) -> Dict[str, Any]:
         """Execute DAG for multiple items using Daft batch processing."""
         assert map_axis, "No map axis configured but batching was requested."
@@ -377,12 +371,11 @@ class Runner:
 
         if not DAFT_AVAILABLE:
             # Fallback to Python loop
-            return self._run_local_loop(inputs, map_axis)
+            return self._run_local_loop(pipeline, inputs, map_axis)
 
         # Build initial Daft DF with one column for the map_axis (dictified Pydantic)
         df = daft.from_pylist([{map_axis: it.model_dump()} for it in items])
 
-        pipeline = self.pipeline
         order = pipeline.topo({**constants, map_axis: items[0]})
 
         # First pass: execute non-mapped functions once and add to constants

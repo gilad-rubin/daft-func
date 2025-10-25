@@ -42,9 +42,9 @@ incomplete_inputs = {
     # Missing: corpus, query, reranker, top_k
 }
 
-runner = Runner(pipeline=pipeline, mode="auto")
+runner = Runner(mode="auto")
 try:
-    result = runner.run(inputs=incomplete_inputs)
+    result = runner.run(pipeline, inputs=incomplete_inputs)
 except RuntimeError as e:
     print("Expected error caught!")
     print(f"\nError message:\n{e}")

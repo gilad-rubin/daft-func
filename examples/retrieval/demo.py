@@ -45,7 +45,7 @@ def main():
     pipeline = Pipeline(functions=[index, retrieve, rerank])
 
     # Create runner with auto mode (chooses based on batch size)
-    runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=2)
+    runner = Runner(mode="auto", batch_threshold=2)
 
     print("=" * 70)
     print("daft_func Retrieval Pipeline Demo")
@@ -61,7 +61,7 @@ def main():
         "top_k": 2,
     }
 
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
     print(f"Query: {single_inputs['query'].text}")
     print(f"Results: {len(result['reranked_hits'])} hits")
     for hit in result["reranked_hits"]:
@@ -81,7 +81,7 @@ def main():
         "top_k": 2,
     }
 
-    result = runner.run(inputs=multi_inputs)
+    result = runner.run(pipeline, inputs=multi_inputs)
     print(f"Processed {len(result['reranked_hits'])} queries")
     for i, (query, hits) in enumerate(
         zip(multi_inputs["query"], result["reranked_hits"])
@@ -95,8 +95,8 @@ def main():
     print("\n📝 Example 3: Testing Different Execution Modes\n")
 
     for mode in ["local", "daft", "auto"]:
-        runner = Runner(pipeline=pipeline, mode=mode, batch_threshold=2)
-        result = runner.run(inputs=multi_inputs)
+        runner = Runner(mode=mode, batch_threshold=2)
+        result = runner.run(pipeline, inputs=multi_inputs)
         print(
             f"✅ {mode.upper():5s} mode: {len(result['reranked_hits'])} queries processed"
         )

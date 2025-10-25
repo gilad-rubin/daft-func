@@ -43,7 +43,6 @@ def run_test_sequence(backend_name: str, cache_backend):
 
     pipeline = Pipeline(functions=[index, retrieve, rerank])
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=cache_backend),

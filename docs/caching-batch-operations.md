@@ -46,11 +46,11 @@ def retrieve(retriever: Retriever, query: Query, top_k: int) -> Result:
 runner = Runner(pipeline, cache_config=CacheConfig(enabled=True))
 
 # Run 1: Cold cache
-result1 = runner.run(inputs={"query": Query(query_uuid="q1", text="test"), ...})
+result1 = runner.run(pipeline, inputs={"query": Query(query_uuid="q1", text="test"), ...})
 # [CACHE] index: ✗ MISS | hits: ✗ MISS | reranked_hits: ✗ MISS
 
 # Run 2: Warm cache  
-result2 = runner.run(inputs={"query": Query(query_uuid="q1", text="test"), ...})
+result2 = runner.run(pipeline, inputs={"query": Query(query_uuid="q1", text="test"), ...})
 # [CACHE] index: ✓ HIT | hits: ✓ HIT | reranked_hits: ✓ HIT
 ```
 
@@ -64,13 +64,13 @@ queries = [
 ]
 
 # Run 1: Cold cache - all execute
-result1 = runner.run(inputs={"query": queries, ...})
+result1 = runner.run(pipeline, inputs={"query": queries, ...})
 # [CACHE] index: ✗ MISS | hits: ✗ MISS | reranked_hits: ✗ MISS  (q1)
 #         index: ✓ HIT  | hits: ✗ MISS | reranked_hits: ✗ MISS  (q2)
 #         index: ✓ HIT  | hits: ✗ MISS | reranked_hits: ✗ MISS  (q3)
 
 # Run 2: Warm cache - all cached!
-result2 = runner.run(inputs={"query": queries, ...})
+result2 = runner.run(pipeline, inputs={"query": queries, ...})
 # [CACHE] index: ✓ HIT | hits: ✓ HIT | reranked_hits: ✓ HIT  (q1)
 #         index: ✓ HIT | hits: ✓ HIT | reranked_hits: ✓ HIT  (q2)
 #         index: ✓ HIT | hits: ✓ HIT | reranked_hits: ✓ HIT  (q3)
@@ -81,7 +81,7 @@ mixed_queries = [
     Query(query_uuid="q4", text="new query"),    # New!
     Query(query_uuid="q2", text="wizards jump"), # Cached
 ]
-result3 = runner.run(inputs={"query": mixed_queries, ...})
+result3 = runner.run(pipeline, inputs={"query": mixed_queries, ...})
 # [CACHE] index: ✓ HIT | hits: ✓ HIT  | reranked_hits: ✓ HIT   (q1 - cached!)
 #         index: ✓ HIT | hits: ✗ MISS | reranked_hits: ✗ MISS  (q4 - new!)
 #         index: ✓ HIT | hits: ✓ HIT  | reranked_hits: ✓ HIT   (q2 - cached!)
@@ -203,12 +203,12 @@ Query(query_uuid=str(uuid.uuid4()), text="hello")  # Always misses
 ```python
 # Good: Reuse retriever instance
 retriever = ToyRetriever()
-runner.run(inputs={"retriever": retriever, ...})  # Run 1
-runner.run(inputs={"retriever": retriever, ...})  # Run 2 - cache hits!
+runner.run(pipeline, inputs={"retriever": retriever, ...})  # Run 1
+runner.run(pipeline, inputs={"retriever": retriever, ...})  # Run 2 - cache hits!
 
 # Problematic: New instances each time
-runner.run(inputs={"retriever": ToyRetriever(), ...})  # Run 1
-runner.run(inputs={"retriever": ToyRetriever(), ...})  # Run 2
+runner.run(pipeline, inputs={"retriever": ToyRetriever(), ...})  # Run 1
+runner.run(pipeline, inputs={"retriever": ToyRetriever(), ...})  # Run 2
 # May or may not cache hit depending on object state
 ```
 
@@ -223,11 +223,11 @@ def index(retriever: Retriever, corpus: dict) -> bool:
     return True
 
 # First run: executes, mutates retriever
-runner.run(inputs={"retriever": retriever, "corpus": corpus})
+runner.run(pipeline, inputs={"retriever": retriever, "corpus": corpus})
 
 # Second run: returns True from cache, DOESN'T mutate new retriever!
 new_retriever = ToyRetriever()  
-runner.run(inputs={"retriever": new_retriever, "corpus": corpus})
+runner.run(pipeline, inputs={"retriever": new_retriever, "corpus": corpus})
 # new_retriever is NOT indexed! Use same instance instead.
 ```
 

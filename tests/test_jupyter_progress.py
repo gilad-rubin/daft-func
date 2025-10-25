@@ -65,8 +65,8 @@ print("Expected: 3 progress bars, each going 0→100%")
 print()
 
 pipeline = Pipeline(functions=[load_data, process_data, compute_result])
-runner = Runner(pipeline=pipeline)
-result = runner.run(inputs={"x": 5})
+runner = Runner()
+result = runner.run(pipeline, inputs={"x": 5})
 
 print()
 print(f"✓ Result: {result['result']}")
@@ -106,10 +106,10 @@ print("Expected: 2 progress bars showing 1/5, 2/5, 3/5, 4/5, 5/5")
 print()
 
 pipeline = Pipeline(functions=[double_item, square_item])
-runner = Runner(pipeline=pipeline, mode="local")
+runner = Runner(mode="local")
 
 items = [Item(value=i, id=f"item_{i}") for i in range(1, 6)]
-result = runner.run(inputs={"items": items})
+result = runner.run(pipeline, inputs={"items": items})
 
 print()
 print(f"✓ Processed {len(result['squared'])} items")
@@ -150,15 +150,15 @@ pipeline = Pipeline(functions=[expensive_operation, cheap_operation])
 with tempfile.TemporaryDirectory() as tmpdir:
     cache_backend = DiskCache(cache_dir=tmpdir)
     cache_config = CacheConfig(enabled=True, backend=cache_backend)
-    runner = Runner(pipeline=pipeline, cache_config=cache_config)
+    runner = Runner(cache_config=cache_config)
 
     print("First run (should execute):")
-    result1 = runner.run(inputs={"x": 10})
+    result1 = runner.run(pipeline, inputs={"x": 10})
     print(f"Result: {result1['cheap']}")
     print()
 
     print("Second run (should hit cache - look for ⚡ icon):")
-    result2 = runner.run(inputs={"x": 10})
+    result2 = runner.run(pipeline, inputs={"x": 10})
     print(f"Result: {result2['cheap']}")
     print()
 

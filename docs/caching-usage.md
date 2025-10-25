@@ -18,13 +18,14 @@ def process_data(data: str) -> str:
 # Create pipeline and runner with caching
 pipeline = Pipeline(functions=[process_data])
 cache_config = CacheConfig(enabled=True, cache_dir=".cache")
-runner = Runner(pipeline=pipeline, cache_config=cache_config)
+runner = Runner(
+        cache_config=cache_config)
 
 # First run: executes and caches
-result1 = runner.run(inputs={"data": "hello"})
+result1 = runner.run(pipeline, inputs={"data": "hello"})
 
 # Second run with same input: uses cache
-result2 = runner.run(inputs={"data": "hello"})  # Instant!
+result2 = runner.run(pipeline, inputs={"data": "hello"})  # Instant!
 ```
 
 ## Core Concepts
@@ -152,15 +153,15 @@ def compute(x: int) -> int:
 
 2. **Input Changes**
 ```python
-result1 = runner.run(inputs={"x": 5})   # Executes
-result2 = runner.run(inputs={"x": 10})  # Executes (different input)
-result3 = runner.run(inputs={"x": 5})   # Uses cache from result1
+result1 = runner.run(pipeline, inputs={"x": 5})   # Executes
+result2 = runner.run(pipeline, inputs={"x": 10})  # Executes (different input)
+result3 = runner.run(pipeline, inputs={"x": 5})   # Uses cache from result1
 ```
 
 3. **Dependency Changes**
 ```python
 # DAG: (a,b) -> foo -> bar(foo_out, c)
-result = runner.run(inputs={"a": 1, "b": 2, "c": 3})
+result = runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 3})
 
 # Change upstream: a or b -> foo and bar re-execute
 # Change downstream: c -> only bar re-executes (foo uses cache)
@@ -208,17 +209,18 @@ def build_index(embeddings: np.ndarray, index_type: str):
 # Create pipeline
 pipeline = Pipeline(functions=[load_corpus, encode_corpus, build_index])
 cache_config = CacheConfig(enabled=True, cache_dir=".cache/retrieval")
-runner = Runner(pipeline=pipeline, cache_config=cache_config)
+runner = Runner(
+        cache_config=cache_config)
 
 # First run: everything executes
-result1 = runner.run(inputs={
+result1 = runner.run(pipeline, inputs={
     "corpus_path": "data/corpus.json",
     "model_name": "sentence-transformers/all-MiniLM-L6-v2",
     "index_type": "faiss"
 })
 
 # Change only index type: only build_index re-executes
-result2 = runner.run(inputs={
+result2 = runner.run(pipeline, inputs={
     "corpus_path": "data/corpus.json",
     "model_name": "sentence-transformers/all-MiniLM-L6-v2",
     "index_type": "annoy"  # Different index type

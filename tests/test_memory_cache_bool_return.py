@@ -53,7 +53,6 @@ def test_with_bool_return():
     print("=" * 70)
 
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=MemoryCache()),
@@ -62,37 +61,40 @@ def test_with_bool_return():
     # Run 1
     print("\n1. First run:")
     result = runner.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
     # Run 2
     print("\n2. Second run:")
     result = runner.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
     # Run 3
     print("\n3. Third run:")
     result = runner.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
     print("\n" + "=" * 70)
@@ -100,7 +102,6 @@ def test_with_bool_return():
     print("=" * 70)
 
     runner_disk = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
@@ -109,37 +110,40 @@ def test_with_bool_return():
     # Run 1
     print("\n1. First run:")
     result = runner_disk.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
     # Run 2
     print("\n2. Second run:")
     result = runner_disk.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
     # Run 3
     print("\n3. Third run:")
     result = runner_disk.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
 

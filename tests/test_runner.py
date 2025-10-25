@@ -28,13 +28,13 @@ def test_runner_single_item():
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
     pipeline = Pipeline(functions=[process])
-    runner = Runner(pipeline=pipeline, mode="auto")
+    runner = Runner(mode="auto")
     inputs = {
         "item": Item(item_id="i1", value=5),
         "multiplier": 2,
     }
 
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert "result" in result
     # Single item is not wrapped in a list
     assert isinstance(result["result"], Result)
@@ -50,7 +50,7 @@ def test_runner_multiple_items_local():
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
     pipeline = Pipeline(functions=[process])
-    runner = Runner(pipeline=pipeline, mode="local")
+    runner = Runner(mode="local")
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -59,7 +59,7 @@ def test_runner_multiple_items_local():
         "multiplier": 2,
     }
 
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert "result" in result
     assert len(result["result"]) == 2
     assert result["result"][0].item_id == "i1"
@@ -77,7 +77,7 @@ def test_runner_multiple_items_daft():
         return Result(item_id=item.item_id, doubled=item.value * multiplier)
 
     pipeline = Pipeline(functions=[process])
-    runner = Runner(pipeline=pipeline, mode="daft")
+    runner = Runner(mode="daft")
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -86,7 +86,7 @@ def test_runner_multiple_items_daft():
         "multiplier": 2,
     }
 
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert "result" in result
     assert len(result["result"]) == 2
     # Daft runner returns Pydantic models (reconstructed from dicts)
@@ -104,7 +104,7 @@ def test_runner_auto_mode_threshold():
 
     pipeline = Pipeline(functions=[process])
     # With 2 items and threshold 3, should use local
-    runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=3)
+    runner = Runner(mode="auto", batch_threshold=3)
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
@@ -113,7 +113,7 @@ def test_runner_auto_mode_threshold():
         "multiplier": 2,
     }
 
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert len(result["result"]) == 2
 
 
@@ -129,14 +129,14 @@ def test_runner_chained_nodes():
         return Result(item_id=item.item_id, doubled=doubled.doubled + 10)
 
     pipeline = Pipeline(functions=[double, add_ten])
-    runner = Runner(pipeline=pipeline, mode="local")
+    runner = Runner(mode="local")
     inputs = {
         "item": [
             Item(item_id="i1", value=5),
         ],
     }
 
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert "final" in result
     assert result["final"][0].doubled == 20  # (5 * 2) + 10
 
@@ -153,14 +153,14 @@ def test_runner_constants_filtered():
         return const2 * 3
 
     pipeline = Pipeline(functions=[node1, node2])
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
     inputs = {
         "const1": 5,
         "const2": 10,
     }
 
     # Should not raise error about unexpected keyword arguments
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     # Single items are not wrapped
     assert result["result1"] == 10
     assert result["result2"] == 30
@@ -178,23 +178,23 @@ def test_runner_default_parameters():
         return step1 + add_value
 
     pipeline = Pipeline(functions=[first_step, second_step])
-    runner = Runner(pipeline=pipeline)
+    runner = Runner()
 
     # Test 1: Don't provide any optional parameters (use defaults)
     inputs = {"value": 5}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert result["step1"] == 10  # 5 * 2 (default multiplier)
     assert result["step2"] == 20  # 10 + 10 (default add_value)
 
     # Test 2: Override one default parameter
     inputs = {"value": 5, "multiplier": 3}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert result["step1"] == 15  # 5 * 3
     assert result["step2"] == 25  # 15 + 10 (default add_value)
 
     # Test 3: Override all default parameters
     inputs = {"value": 5, "multiplier": 3, "add_value": 20}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
     assert result["step1"] == 15  # 5 * 3
     assert result["step2"] == 35  # 15 + 20
 
@@ -237,7 +237,7 @@ def test_runner_non_mapped_with_mapped_daft():
         ][:top_k]
 
     pipeline = Pipeline(functions=[index, retrieve])
-    runner = Runner(pipeline=pipeline, mode="daft")
+    runner = Runner(mode="daft")
 
     inputs = {
         "corpus": {"d1": "text1", "d2": "text2"},
@@ -249,7 +249,7 @@ def test_runner_non_mapped_with_mapped_daft():
         "top_k": 2,
     }
 
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     # Check non-mapped function result
     assert result["index"] is True

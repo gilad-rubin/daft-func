@@ -27,16 +27,16 @@ def test_cache_logging_enabled_by_default(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir), verbose=True
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run - cache miss
-    runner.run(inputs={"x": 5})
+    runner.run(pipeline, inputs={"x": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" in captured.out
     assert "result: ✗ MISS" in captured.out
 
     # Second run - cache hit
-    runner.run(inputs={"x": 5})
+    runner.run(pipeline, inputs={"x": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" in captured.out
     assert "result: ✓ HIT" in captured.out
@@ -53,10 +53,10 @@ def test_cache_logging_disabled(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir), verbose=False
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # Run - should not print cache info
-    runner.run(inputs={"x": 5})
+    runner.run(pipeline, inputs={"x": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" not in captured.out
 
@@ -75,10 +75,10 @@ def test_cache_logging_shows_execution_time(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run - should show execution time
-    runner.run(inputs={"x": 5})
+    runner.run(pipeline, inputs={"x": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" in captured.out
     assert "result: ✗ MISS" in captured.out
@@ -105,10 +105,10 @@ def test_cache_logging_multiple_nodes(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run - all miss or no-cache
-    runner.run(inputs={"x": 5})
+    runner.run(pipeline, inputs={"x": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" in captured.out
     assert "step1: ✗ MISS" in captured.out
@@ -116,7 +116,7 @@ def test_cache_logging_multiple_nodes(temp_cache_dir, capsys):
     assert "step3: NO-CACHE" in captured.out
 
     # Second run - cached nodes hit, uncached always executes
-    runner.run(inputs={"x": 5})
+    runner.run(pipeline, inputs={"x": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" in captured.out
     assert "step1: ✓ HIT" in captured.out
@@ -139,14 +139,14 @@ def test_cache_logging_smart_invalidation(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    runner.run(inputs={"a": 1, "b": 2, "c": 3})
+    runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 3})
     capsys.readouterr()  # Clear
 
     # Change only c (downstream) - foo should be cached
-    runner.run(inputs={"a": 1, "b": 2, "c": 5})
+    runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 5})
     captured = capsys.readouterr()
     assert "[CACHE]" in captured.out
     assert "foo: ✓ HIT" in captured.out  # Upstream cached
@@ -172,9 +172,9 @@ def test_cache_logging_format(temp_cache_dir, capsys):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
-    runner.run(inputs={"x": 1})
+    runner.run(pipeline, inputs={"x": 1})
     captured = capsys.readouterr()
 
     # Check format: [CACHE] node1: status | node2: status | node3: status

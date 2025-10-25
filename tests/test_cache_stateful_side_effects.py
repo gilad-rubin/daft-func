@@ -53,12 +53,13 @@ def test_stateful_side_effects_different_instances():
         cache_config = CacheConfig(
             enabled=True, backend=DiskCache(cache_dir=tmpdir), verbose=True
         )
-        runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+        runner = Runner(mode="local", cache_config=cache_config)
 
         # First run: everything works (cold cache)
         processor1 = StatefulProcessor()
         result1 = runner.run(
-            inputs={"processor": processor1, "data": "PREFIX", "text": "hello"}
+            pipeline,
+            inputs={"processor": processor1, "data": "PREFIX", "text": "hello"},
         )
         assert result1["result"] == "PREFIX:hello"
         assert processor1._initialized is True
@@ -68,7 +69,8 @@ def test_stateful_side_effects_different_instances():
         # Both functions execute normally, processor2 gets initialized
         processor2 = StatefulProcessor()
         result2 = runner.run(
-            inputs={"processor": processor2, "data": "PREFIX", "text": "world"}
+            pipeline,
+            inputs={"processor": processor2, "data": "PREFIX", "text": "world"},
         )
 
         # This works correctly because processor2 was initialized
@@ -97,21 +99,21 @@ def test_stateful_side_effects_same_instance():
         cache_config = CacheConfig(
             enabled=True, backend=DiskCache(cache_dir=tmpdir), verbose=True
         )
-        runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+        runner = Runner(mode="local", cache_config=cache_config)
 
         # Using the SAME processor instance
         processor = StatefulProcessor()
 
         # First run: cold cache, initializes
         result1 = runner.run(
-            inputs={"processor": processor, "data": "PREFIX", "text": "hello"}
+            pipeline, inputs={"processor": processor, "data": "PREFIX", "text": "hello"}
         )
         assert result1["result"] == "PREFIX:hello"
 
         # Second run: cache hit, but processor is ALREADY initialized from run 1
         # This "works" but only because we're reusing the same instance
         result2 = runner.run(
-            inputs={"processor": processor, "data": "PREFIX", "text": "world"}
+            pipeline, inputs={"processor": processor, "data": "PREFIX", "text": "world"}
         )
         assert result2["result"] == "PREFIX:world"
 

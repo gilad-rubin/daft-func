@@ -71,19 +71,18 @@ def test_instance_id_behavior():
 
     pipeline = Pipeline(functions=[index_str])
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         cache_config=CacheConfig(enabled=True, backend=MemoryCache()),
     )
 
     print("\nRun 1 (r1):")
-    result1 = runner.run(inputs={"retriever": r1, "corpus": corpus})
+    result1 = runner.run(pipeline, inputs={"retriever": r1, "corpus": corpus})
 
     print("\nRun 2 (r2):")
-    result2 = runner.run(inputs={"retriever": r2, "corpus": corpus})
+    result2 = runner.run(pipeline, inputs={"retriever": r2, "corpus": corpus})
 
     print("\nRun 3 (r3):")
-    result3 = runner.run(inputs={"retriever": r3, "corpus": corpus})
+    result3 = runner.run(pipeline, inputs={"retriever": r3, "corpus": corpus})
 
 
 if __name__ == "__main__":

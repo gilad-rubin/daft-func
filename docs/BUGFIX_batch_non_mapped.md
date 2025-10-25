@@ -23,8 +23,9 @@ def retrieve(query: Query, top_k: int, index: bool) -> RetrievalResult:
     return retriever.retrieve(query, top_k=top_k)
 
 # This would fail in batch mode
-runner = Runner(pipeline=pipeline, mode="daft")
-result = runner.run(inputs=multi_inputs)  # AttributeError!
+runner = Runner(
+        mode="daft")
+result = runner.run(pipeline, inputs=multi_inputs)  # AttributeError!
 ```
 
 ## Solution

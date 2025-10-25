@@ -129,17 +129,16 @@ cache_config = CacheConfig(
 )
 
 runner = Runner(
-    pipeline=pipeline,
-    mode="local",
+        mode="local",
     cache_config=cache_config
 )
 
 # First run: cache miss, executes function
-result1 = runner.run(inputs={"x": 5})
+result1 = runner.run(pipeline, inputs={"x": 5})
 # Output: [CACHE] result: ✗ MISS (1.00s)
 
 # Second run: cache hit, instant
-result2 = runner.run(inputs={"x": 5})
+result2 = runner.run(pipeline, inputs={"x": 5})
 # Output: [CACHE] result: ✓ HIT
 ```
 

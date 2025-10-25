@@ -58,9 +58,9 @@ single_inputs = {
 }
 
 # Create runner with auto mode (chooses based on batch size)
-runner = Runner(pipeline=pipeline, mode="auto", batch_threshold=2)
+runner = Runner(mode="auto", batch_threshold=2)
 print("Runner created successfully!")
 
-result = runner.run(inputs=single_inputs)
+result = runner.run(pipeline, inputs=single_inputs)
 print(f"Result: {result}")
 print("\nSuccess! The pipeline ran with default parameters.")

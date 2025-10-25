@@ -45,7 +45,6 @@ def test_memory_cache():
     }
 
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=MemoryCache()),
@@ -64,11 +63,11 @@ def test_memory_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
 
     # Second run
     print("\nRun 2:")
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
 
     # Third run - NEW inputs dict with NEW instances
     print("\nRun 3 (new inputs dict, new instances):")
@@ -84,7 +83,7 @@ def test_memory_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
 
 
 def test_disk_cache():
@@ -98,7 +97,6 @@ def test_disk_cache():
     }
 
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
@@ -117,11 +115,11 @@ def test_disk_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
 
     # Second run
     print("\nRun 2:")
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
 
     # Third run - NEW inputs dict with NEW instances
     print("\nRun 3 (new inputs dict, new instances):")
@@ -137,7 +135,7 @@ def test_disk_cache():
         "query": Query(query_uuid="q1", text="quick brown"),
         "top_k": 2,
     }
-    result = runner.run(inputs=single_inputs)
+    result = runner.run(pipeline, inputs=single_inputs)
 
 
 if __name__ == "__main__":

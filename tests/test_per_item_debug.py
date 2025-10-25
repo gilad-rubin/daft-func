@@ -31,7 +31,7 @@ def test_per_item_caching_debug():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_config = CacheConfig(enabled=True, backend=DiskCache(cache_dir=tmpdir))
-        runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+        runner = Runner(mode="local", cache_config=cache_config)
 
         items = [
             Item(id="i1", value=10),
@@ -42,7 +42,7 @@ def test_per_item_caching_debug():
         print("\n" + "=" * 70)
         print("RUN 1: Three items (should all be MISS)")
         print("=" * 70)
-        result1 = runner.run(inputs={"item": items})
+        result1 = runner.run(pipeline, inputs={"item": items})
         print(f"\nExecutions: {executions}")
         print("Expected: ['i1', 'i2', 'i3']")
         assert executions == ["i1", "i2", "i3"], (
@@ -52,7 +52,7 @@ def test_per_item_caching_debug():
         print("\n" + "=" * 70)
         print("RUN 2: Same three items (should all be HIT)")
         print("=" * 70)
-        result2 = runner.run(inputs={"item": items})
+        result2 = runner.run(pipeline, inputs={"item": items})
         print(f"\nExecutions: {executions}")
         print("Expected: ['i1', 'i2', 'i3'] (no new executions)")
         assert executions == ["i1", "i2", "i3"], (

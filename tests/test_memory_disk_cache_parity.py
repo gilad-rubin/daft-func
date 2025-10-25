@@ -57,7 +57,6 @@ def pipeline():
 def test_memory_cache_with_new_instances(corpus, pipeline, capsys):
     """Test that MemoryCache works correctly with new instances."""
     runner = Runner(
-        pipeline=pipeline,
         mode="local",
         batch_threshold=2,
         cache_config=CacheConfig(enabled=True, backend=MemoryCache()),
@@ -65,13 +64,14 @@ def test_memory_cache_with_new_instances(corpus, pipeline, capsys):
 
     # Run 1: MISS
     runner.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
     captured = capsys.readouterr()
     assert "index_path: ✗ MISS" in captured.out
@@ -80,13 +80,14 @@ def test_memory_cache_with_new_instances(corpus, pipeline, capsys):
 
     # Run 2: HIT (new instance but same __cache_key__)
     runner.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
     captured = capsys.readouterr()
     assert "index_path: ✓ HIT" in captured.out
@@ -95,13 +96,14 @@ def test_memory_cache_with_new_instances(corpus, pipeline, capsys):
 
     # Run 3: HIT (another new instance)
     runner.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
     captured = capsys.readouterr()
     assert "index_path: ✓ HIT" in captured.out
@@ -113,7 +115,6 @@ def test_disk_cache_with_new_instances(corpus, pipeline, capsys):
     """Test that DiskCache works correctly with new instances."""
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = Runner(
-            pipeline=pipeline,
             mode="local",
             batch_threshold=2,
             cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=tmpdir)),
@@ -121,13 +122,14 @@ def test_disk_cache_with_new_instances(corpus, pipeline, capsys):
 
         # Run 1: MISS
         runner.run(
+            pipeline,
             inputs={
                 "retriever": ToyRetriever(),
                 "corpus": corpus,
                 "reranker": IdentityReranker(),
                 "query": Query(query_uuid="q1", text="quick brown"),
                 "top_k": 2,
-            }
+            },
         )
         captured = capsys.readouterr()
         assert "index_path: ✗ MISS" in captured.out
@@ -136,13 +138,14 @@ def test_disk_cache_with_new_instances(corpus, pipeline, capsys):
 
         # Run 2: HIT (new instance but same __cache_key__)
         runner.run(
+            pipeline,
             inputs={
                 "retriever": ToyRetriever(),
                 "corpus": corpus,
                 "reranker": IdentityReranker(),
                 "query": Query(query_uuid="q1", text="quick brown"),
                 "top_k": 2,
-            }
+            },
         )
         captured = capsys.readouterr()
         assert "index_path: ✓ HIT" in captured.out
@@ -151,13 +154,14 @@ def test_disk_cache_with_new_instances(corpus, pipeline, capsys):
 
         # Run 3: HIT (another new instance)
         runner.run(
+            pipeline,
             inputs={
                 "retriever": ToyRetriever(),
                 "corpus": corpus,
                 "reranker": IdentityReranker(),
                 "query": Query(query_uuid="q1", text="quick brown"),
                 "top_k": 2,
-            }
+            },
         )
         captured = capsys.readouterr()
         assert "index_path: ✓ HIT" in captured.out
@@ -170,37 +174,37 @@ def test_memory_and_disk_cache_parity(corpus, pipeline):
 
     # Test with MemoryCache
     runner_mem = Runner(
-        pipeline=pipeline,
         mode="local",
         cache_config=CacheConfig(enabled=True, backend=MemoryCache()),
     )
 
     result_mem = runner_mem.run(
+        pipeline,
         inputs={
             "retriever": ToyRetriever(),
             "corpus": corpus,
             "reranker": IdentityReranker(),
             "query": Query(query_uuid="q1", text="quick brown"),
             "top_k": 2,
-        }
+        },
     )
 
     # Test with DiskCache
     with tempfile.TemporaryDirectory() as tmpdir:
         runner_disk = Runner(
-            pipeline=pipeline,
             mode="local",
             cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=tmpdir)),
         )
 
         result_disk = runner_disk.run(
+            pipeline,
             inputs={
                 "retriever": ToyRetriever(),
                 "corpus": corpus,
                 "reranker": IdentityReranker(),
                 "query": Query(query_uuid="q1", text="quick brown"),
                 "top_k": 2,
-            }
+            },
         )
 
     # Results should be identical

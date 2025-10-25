@@ -79,11 +79,11 @@ def demo_single_item():
     )
 
     # Create runner with progress enabled (default)
-    runner = Runner(pipeline=pipeline, mode="local")
+    runner = Runner(mode="local")
 
     # Run pipeline
     inputs = {"source": "test_data"}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print(f"✓ Final result: {result['result']:.3f}")
@@ -123,13 +123,13 @@ def demo_multi_item():
     print()
 
     pipeline = Pipeline(functions=[process_queries, analyze_queries])
-    runner = Runner(pipeline=pipeline, mode="local")
+    runner = Runner(mode="local")
 
     # Create multiple items
     queries = [Query(text=f"Query {i}", id=i) for i in range(5)]
 
     inputs = {"queries": queries}
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print()
     print(f"✓ Processed {len(result['results'])} items")
@@ -168,18 +168,18 @@ def demo_with_cache():
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_backend = DiskCache(cache_dir=tmpdir)
         cache_config = CacheConfig(enabled=True, backend=cache_backend)
-        runner = Runner(pipeline=pipeline, cache_config=cache_config)
+        runner = Runner(cache_config=cache_config)
 
         # First run
         print("--- First Run ---")
         inputs = {"x": 10}
-        result1 = runner.run(inputs=inputs)
+        result1 = runner.run(pipeline, inputs=inputs)
         print(f"Result: {result1['cheap_result']}")
         print()
 
         # Second run (should hit cache)
         print("--- Second Run (with cache) ---")
-        result2 = runner.run(inputs=inputs)
+        result2 = runner.run(pipeline, inputs=inputs)
         print(f"Result: {result2['cheap_result']}")
         print()
 
@@ -207,16 +207,16 @@ def demo_theme_selection():
     # Demo with explicit dark theme
     print("Using DARK theme (bright colors):")
     progress_config = ProgressConfig(theme="dark")
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     print(f"Result: {result['step2']}")
     print()
 
     # Demo with explicit light theme
     print("Using LIGHT theme (darker colors):")
     progress_config = ProgressConfig(theme="light")
-    runner = Runner(pipeline=pipeline, progress_config=progress_config)
-    result = runner.run(inputs={"x": 5})
+    runner = Runner(progress_config=progress_config)
+    result = runner.run(pipeline, inputs={"x": 5})
     print(f"Result: {result['step2']}")
     print()
 

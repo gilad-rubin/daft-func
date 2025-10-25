@@ -53,8 +53,7 @@ single_inputs = {
 
 # Create runner with auto mode (chooses based on batch size)
 runner = Runner(
-    pipeline=pipeline,
-    mode="local",
+        mode="local",
     batch_threshold=2,
     cache_config=CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache")),
 )
@@ -62,12 +61,12 @@ runner = Runner(
 print("=" * 60)
 print("RUN 1: First execution (should be MISS)")
 print("=" * 60)
-result1 = runner.run(inputs=single_inputs)
+result1 = runner.run(pipeline, inputs=single_inputs)
 
 print("\n" + "=" * 60)
 print("RUN 2: Same inputs, same instances (should be HIT)")
 print("=" * 60)
-result2 = runner.run(inputs=single_inputs)
+result2 = runner.run(pipeline, inputs=single_inputs)
 
 print("\n" + "=" * 60)
 print("RUN 3: New instances, same config (should be HIT now!)")
@@ -80,7 +79,7 @@ single_inputs_new = {
     "query": Query(query_uuid="q1", text="quick brown"),
     "top_k": 2,
 }
-result3 = runner.run(inputs=single_inputs_new)
+result3 = runner.run(pipeline, inputs=single_inputs_new)
 
 print("\n" + "=" * 60)
 print("VERIFICATION")

@@ -48,22 +48,22 @@ def test_cache_key_protocol(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
     model1 = ModelWithCacheKey(model_path="bert-base", device="cpu")
-    result1 = runner.run(inputs={"model": model1, "text": "hello"})
+    result1 = runner.run(pipeline, inputs={"model": model1, "text": "hello"})
     assert len(executions) == 1
 
     # Second run with DIFFERENT instance but same cache key
     model2 = ModelWithCacheKey(model_path="bert-base", device="cpu")
-    result2 = runner.run(inputs={"model": model2, "text": "hello"})
+    result2 = runner.run(pipeline, inputs={"model": model2, "text": "hello"})
     # Should use cache because __cache_key__() returns same value
     assert len(executions) == 1, "Expected cache hit with same __cache_key__()"
 
     # Third run with different model path
     model3 = ModelWithCacheKey(model_path="bert-large", device="cpu")
-    result3 = runner.run(inputs={"model": model3, "text": "hello"})
+    result3 = runner.run(pipeline, inputs={"model": model3, "text": "hello"})
     # Should miss cache because __cache_key__() is different
     assert len(executions) == 2, "Expected cache miss with different __cache_key__()"
 
@@ -86,15 +86,15 @@ def test_cache_key_with_state_changes(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run - model gets loaded, _loaded_model is set
     model = ModelWithCacheKey(model_path="bert-base")
-    result1 = runner.run(inputs={"model": model, "text": "hello"})
+    result1 = runner.run(pipeline, inputs={"model": model, "text": "hello"})
     assert len(executions) == 1
     assert model._loaded_model is not None
 
     # Second run - model now has _loaded_model set
     # But should still cache hit because __cache_key__() ignores it
-    result2 = runner.run(inputs={"model": model, "text": "hello"})
+    result2 = runner.run(pipeline, inputs={"model": model, "text": "hello"})
     assert len(executions) == 1, "Expected cache hit despite state change"

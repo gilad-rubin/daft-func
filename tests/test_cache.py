@@ -37,13 +37,12 @@ def test_cache_disabled_by_default(temp_cache_dir):
     pipeline = Pipeline(functions=[double])
 
     # Without cache_config
-    runner1 = Runner(pipeline=pipeline, mode="local")
+    runner1 = Runner(mode="local")
     assert not runner1.cache_config.enabled
     assert runner1.cache_backend is not None  # Backend exists but caching is disabled
 
     # With cache_config but enabled=False
     runner2 = Runner(
-        pipeline=pipeline,
         mode="local",
         cache_config=CacheConfig(
             enabled=False, backend=DiskCache(cache_dir=temp_cache_dir)
@@ -76,16 +75,16 @@ def test_downstream_only_change(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"a": 1, "b": 2, "c": 3})
+    result1 = runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 3})
     assert result1["bar_out"] == 9  # (1+2) * 3
     assert len(foo_executions) == 1
     assert len(bar_executions) == 1
 
     # Second run: change only c (downstream)
-    result2 = runner.run(inputs={"a": 1, "b": 2, "c": 5})
+    result2 = runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 5})
     assert result2["bar_out"] == 15  # (1+2) * 5
     # foo should not re-execute (cached)
     assert len(foo_executions) == 1
@@ -115,16 +114,16 @@ def test_full_cache_hit(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"a": 1, "b": 2, "c": 3})
+    result1 = runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 3})
     assert result1["bar_out"] == 9
     assert len(foo_executions) == 1
     assert len(bar_executions) == 1
 
     # Second run: no changes
-    result2 = runner.run(inputs={"a": 1, "b": 2, "c": 3})
+    result2 = runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 3})
     assert result2["bar_out"] == 9
     # Neither should re-execute
     assert len(foo_executions) == 1
@@ -154,16 +153,16 @@ def test_upstream_change(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"a": 1, "b": 2, "c": 3})
+    result1 = runner.run(pipeline, inputs={"a": 1, "b": 2, "c": 3})
     assert result1["bar_out"] == 9
     assert len(foo_executions) == 1
     assert len(bar_executions) == 1
 
     # Second run: change a (upstream)
-    result2 = runner.run(inputs={"a": 10, "b": 2, "c": 3})
+    result2 = runner.run(pipeline, inputs={"a": 10, "b": 2, "c": 3})
     assert result2["bar_out"] == 36  # (10+2) * 3
     # Both should re-execute
     assert len(foo_executions) == 2
@@ -188,15 +187,15 @@ def test_code_change_invalidates_cache(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"x": 5})
+    result1 = runner.run(pipeline, inputs={"x": 5})
     assert result1["result"] == 10
     assert len(executions) == 1
 
     # Second run with same input - should use cache
-    result2 = runner.run(inputs={"x": 5})
+    result2 = runner.run(pipeline, inputs={"x": 5})
     assert result2["result"] == 10
     assert len(executions) == 1
 
@@ -210,10 +209,10 @@ def test_code_change_invalidates_cache(temp_cache_dir):
         return x * 3  # Different computation
 
     pipeline2 = Pipeline(functions=[compute2])
-    runner2 = Runner(pipeline=pipeline2, mode="local", cache_config=cache_config)
+    runner2 = Runner(mode="local", cache_config=cache_config)
 
     # Should execute because code hash is different
-    result3 = runner2.run(inputs={"x": 5})
+    result3 = runner2.run(pipeline2, inputs={"x": 5})
     assert result3["result"] == 15  # Different result
     assert len(executions2) == 1  # New function executed
 
@@ -231,15 +230,15 @@ def test_custom_cache_key(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"x": 5})
+    result1 = runner.run(pipeline, inputs={"x": 5})
     assert result1["result"] == 10
     assert len(executions) == 1
 
     # Second run - should use cache
-    result2 = runner.run(inputs={"x": 5})
+    result2 = runner.run(pipeline, inputs={"x": 5})
     assert result2["result"] == 10
     assert len(executions) == 1
 
@@ -252,10 +251,10 @@ def test_custom_cache_key(temp_cache_dir):
         return x * 2
 
     pipeline2 = Pipeline(functions=[compute_v2])
-    runner2 = Runner(pipeline=pipeline2, mode="local", cache_config=cache_config)
+    runner2 = Runner(mode="local", cache_config=cache_config)
 
     # Should execute because cache_key is different
-    result3 = runner2.run(inputs={"x": 5})
+    result3 = runner2.run(pipeline2, inputs={"x": 5})
     assert result3["result"] == 10
     assert len(executions2) == 1
 
@@ -279,16 +278,16 @@ def test_mixed_cached_uncached_nodes(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"x": 5})
+    result1 = runner.run(pipeline, inputs={"x": 5})
     assert result1["uncached_result"] == 11
     assert len(cached_executions) == 1
     assert len(uncached_executions) == 1
 
     # Second run
-    result2 = runner.run(inputs={"x": 5})
+    result2 = runner.run(pipeline, inputs={"x": 5})
     assert result2["uncached_result"] == 11
     # Cached node should not re-execute
     assert len(cached_executions) == 1
@@ -309,15 +308,15 @@ def test_cache_backend_diskcache(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"x": 5})
+    result1 = runner.run(pipeline, inputs={"x": 5})
     assert result1["result"] == 10
     assert len(executions) == 1
 
     # Second run - should use cache
-    result2 = runner.run(inputs={"x": 5})
+    result2 = runner.run(pipeline, inputs={"x": 5})
     assert result2["result"] == 10
     assert len(executions) == 1
 
@@ -343,7 +342,7 @@ def test_dependency_depth(temp_cache_dir):
             backend=DiskCache(cache_dir=temp_cache_dir),
             dependency_depth=depth,
         )
-        runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+        runner = Runner(mode="local", cache_config=cache_config)
         assert runner.cache_config.dependency_depth == depth
 
 
@@ -360,24 +359,24 @@ def test_cache_with_complex_types(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
     input1 = InputModel(value=5, name="test")
-    result1 = runner.run(inputs={"inp": input1})
+    result1 = runner.run(pipeline, inputs={"inp": input1})
     assert result1["output"].result == 10
     assert result1["output"].message == "Processed test"
     assert len(executions) == 1
 
     # Second run with same input
     input2 = InputModel(value=5, name="test")
-    result2 = runner.run(inputs={"inp": input2})
+    result2 = runner.run(pipeline, inputs={"inp": input2})
     assert result2["output"].result == 10
     assert len(executions) == 1  # Should use cache
 
     # Third run with different input
     input3 = InputModel(value=10, name="test")
-    result3 = runner.run(inputs={"inp": input3})
+    result3 = runner.run(pipeline, inputs={"inp": input3})
     assert result3["output"].result == 20
     assert len(executions) == 2  # Should execute
 
@@ -397,15 +396,15 @@ def test_cache_clears_signatures_between_runs(temp_cache_dir):
     cache_config = CacheConfig(
         enabled=True, backend=DiskCache(cache_dir=temp_cache_dir)
     )
-    runner = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner = Runner(mode="local", cache_config=cache_config)
 
     # First run
-    result1 = runner.run(inputs={"x": 5})
+    result1 = runner.run(pipeline, inputs={"x": 5})
     assert result1["step2"] == 11
     sigs_after_run1 = dict(runner._current_signatures)
 
     # Second run - signatures should be reset
-    result2 = runner.run(inputs={"x": 5})
+    result2 = runner.run(pipeline, inputs={"x": 5})
     assert result2["step2"] == 11
 
     # Verify signatures are consistent

@@ -46,18 +46,18 @@ def main():
     # Demo 1: Without caching
     print("\n📝 Demo 1: Without Caching")
     print("-" * 70)
-    runner_no_cache = Runner(pipeline=pipeline, mode="local")
+    runner_no_cache = Runner(mode="local")
 
     print("\nRun 1 (no cache):")
     start = time.time()
-    result1 = runner_no_cache.run(inputs={"data": "hello world", "threshold": 5})
+    result1 = runner_no_cache.run(pipeline, inputs={"data": "hello world", "threshold": 5})
     time1 = time.time() - start
     print(f"Result: {result1['result']}")
     print(f"Time: {time1:.2f}s")
 
     print("\nRun 2 (no cache, same inputs):")
     start = time.time()
-    result2 = runner_no_cache.run(inputs={"data": "hello world", "threshold": 5})
+    result2 = runner_no_cache.run(pipeline, inputs={"data": "hello world", "threshold": 5})
     time2 = time.time() - start
     print(f"Result: {result2['result']}")
     print(f"Time: {time2:.2f}s")
@@ -67,18 +67,18 @@ def main():
     print("\n📝 Demo 2: With Caching Enabled")
     print("-" * 70)
     cache_config = CacheConfig(enabled=True, backend=DiskCache(cache_dir=".cache/demo"))
-    runner_cache = Runner(pipeline=pipeline, mode="local", cache_config=cache_config)
+    runner_cache = Runner(mode="local", cache_config=cache_config)
 
     print("\nRun 1 (cold cache):")
     start = time.time()
-    result3 = runner_cache.run(inputs={"data": "hello world", "threshold": 5})
+    result3 = runner_cache.run(pipeline, inputs={"data": "hello world", "threshold": 5})
     time3 = time.time() - start
     print(f"Result: {result3['result']}")
     print(f"Time: {time3:.2f}s")
 
     print("\nRun 2 (warm cache, same inputs):")
     start = time.time()
-    result4 = runner_cache.run(inputs={"data": "hello world", "threshold": 5})
+    result4 = runner_cache.run(pipeline, inputs={"data": "hello world", "threshold": 5})
     time4 = time.time() - start
     print(f"Result: {result4['result']}")
     print(f"Time: {time4:.2f}s")
@@ -89,7 +89,7 @@ def main():
     print("-" * 70)
     print("\nRun 3 (change threshold only):")
     start = time.time()
-    result5 = runner_cache.run(inputs={"data": "hello world", "threshold": 10})
+    result5 = runner_cache.run(pipeline, inputs={"data": "hello world", "threshold": 10})
     time5 = time.time() - start
     print(f"Result: {result5['result']}")
     print(f"Time: {time5:.2f}s")
@@ -100,7 +100,7 @@ def main():
     print("-" * 70)
     print("\nRun 4 (change data):")
     start = time.time()
-    result6 = runner_cache.run(inputs={"data": "goodbye", "threshold": 5})
+    result6 = runner_cache.run(pipeline, inputs={"data": "goodbye", "threshold": 5})
     time6 = time.time() - start
     print(f"Result: {result6['result']}")
     print(f"Time: {time6:.2f}s")

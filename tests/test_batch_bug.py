@@ -47,10 +47,10 @@ def test_batch_execution():
     }
 
     # Create runner in batch mode
-    runner = Runner(pipeline=pipeline, mode="daft")
+    runner = Runner(mode="daft")
 
     # This should fail with the AttributeError
-    result = runner.run(inputs=inputs)
+    result = runner.run(pipeline, inputs=inputs)
 
     print("Result:", result)
     assert len(result["final_results"]) == 3
